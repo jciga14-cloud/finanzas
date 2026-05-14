@@ -167,58 +167,118 @@ export default function App() {
   // }
 
   return (
-    <div className="max-w-md mx-auto h-screen flex flex-col bg-slate-950 text-slate-300 shadow-2xl relative overflow-hidden sm:rounded-3xl sm:h-[90vh] sm:my-auto">
+    <div className="min-h-screen bg-slate-950 text-slate-300 flex flex-col md:flex-row overflow-hidden">
+      {/* Toast - Posicionamiento fijo para todas las resoluciones */}
       {toastMessage && (
-        <div className={`absolute top-4 left-1/2 -translate-x-1/2 z-[100] px-4 py-2 rounded-full font-bold text-sm shadow-lg flex items-center gap-2 ${toastMessage.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500 text-slate-900'}`}>
+        <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-full font-bold text-sm shadow-2xl flex items-center gap-2 animate-bounce ${toastMessage.type === 'error' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-slate-900'}`}>
           {toastMessage.msg}
         </div>
       )}
 
-      <header className="bg-slate-900 px-6 py-5 flex justify-between items-center z-10 border-b border-slate-800 rounded-b-3xl">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold border border-emerald-500/30">
+      {/* Sidebar para Desktop (oculto en móvil) */}
+      <aside className="hidden md:flex flex-col w-72 bg-slate-900 border-r border-slate-800 p-8 z-50 h-screen sticky top-0">
+        <div className="flex items-center gap-4 mb-12">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-500 flex items-center justify-center text-slate-950 text-xl font-black">
              {user.email?.[0].toUpperCase()}
           </div>
-          <div>
-            <p className="text-[10px] text-slate-400 font-semibold uppercase">Patrimonio Neto</p>
-            <p className={`font-bold text-lg leading-none ${dashboardStats.netWorth < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+          <div className="overflow-hidden">
+            <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Patrimonio Neto</p>
+            <p className={`font-black text-xl leading-none truncate ${dashboardStats.netWorth < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
               {formatCurrency(dashboardStats.netWorth)}
             </p>
           </div>
         </div>
-        <button onClick={() => supabase.auth.signOut()} className="text-slate-500 hover:text-rose-400">
-          <LogOut size={20} />
+
+        <nav className="flex-1 space-y-4">
+          <NavItem icon={<Home size={20} />} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
+          <NavItem icon={<Wallet size={20} />} label="Mis Cuentas" active={activeTab === 'accounts'} onClick={() => setActiveTab('accounts')} />
+          <NavItem icon={<CreditCard size={20} />} label="Tarjetas" active={activeTab === 'cards'} onClick={() => setActiveTab('cards')} />
+          <NavItem icon={<Landmark size={20} />} label="Préstamos" active={activeTab === 'loans'} onClick={() => setActiveTab('loans')} />
+          <NavItem icon={<Settings size={20} />} label="Configuración" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
+        </nav>
+
+        <button onClick={() => supabase.auth.signOut()} className="mt-auto flex items-center gap-3 p-4 text-slate-500 hover:text-rose-400 transition-all rounded-2xl hover:bg-rose-500/10 font-semibold text-sm">
+          <LogOut size={18} />
+          Cerrar Sesión
         </button>
-      </header>
+      </aside>
 
-      <main className="flex-1 overflow-y-auto pb-24 p-6 hide-scrollbar">
-        {activeTab === 'dashboard' && <DashboardView stats={dashboardStats} transactions={transactions} categories={categories} deleteTx={deleteTransaction} openModal={setModalConfig} />}
-        {activeTab === 'accounts' && <AccountsView accounts={accounts} transactions={transactions} openModal={setModalConfig} deleteTx={deleteTransaction} />}
-        {activeTab === 'cards' && <CreditCardsView cards={creditCards} transactions={transactions} openModal={setModalConfig} deleteTx={deleteTransaction} />}
-        {activeTab === 'loans' && <LoansView loans={loans} transactions={transactions} openModal={setModalConfig} deleteTx={deleteTransaction} />}
-        {activeTab === 'settings' && <SettingsView categories={categories} subscriptions={subscriptions} openModal={setModalConfig} userEmail={user.email} refresh={fetchInitialData} />}
-      </main>
-
-      <nav className="absolute bottom-0 w-full bg-slate-900 border-t border-slate-800 px-6 py-4 flex justify-between items-center z-40 pb-safe">
-        <NavItem icon={<Home />} label="Inicio" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
-        <NavItem icon={<Wallet />} label="Cuentas" active={activeTab === 'accounts'} onClick={() => setActiveTab('accounts')} />
-        <div className="w-12"></div>
-        <NavItem icon={<CreditCard />} label="Tarjetas" active={activeTab === 'cards'} onClick={() => setActiveTab('cards')} />
-        <NavItem icon={<Landmark />} label="Préstamos" active={activeTab === 'loans'} onClick={() => setActiveTab('loans')} />
-      </nav>
-
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50">
-        <button onClick={() => setIsFabOpen(!isFabOpen)} className={`w-14 h-14 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center transition-transform ${isFabOpen ? 'rotate-45 bg-slate-800 text-emerald-500' : ''}`}>
-          <Plus size={28} />
-        </button>
-        {isFabOpen && (
-          <div className="absolute bottom-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 pb-2 animate-fade-in-up w-max">
-            <FabOption icon={<ArrowRightLeft size={18} />} label="Transferencia" color="bg-indigo-500" onClick={() => {setModalConfig({type: 'transfer'}); setIsFabOpen(false);}} />
-            <FabOption icon={<TrendingDown size={18} />} label="Gasto" color="bg-rose-500" onClick={() => {setModalConfig({type: 'expense'}); setIsFabOpen(false);}} />
-            <FabOption icon={<TrendingUp size={18} />} label="Ingreso" color="bg-emerald-500" onClick={() => {setModalConfig({type: 'income'}); setIsFabOpen(false);}} />
+      {/* Área de Contenido Principal */}
+      <div className="flex-1 flex flex-col min-h-screen relative overflow-hidden">
+        
+        {/* Header para Móvil (Oculto en desktop) */}
+        <header className="md:hidden bg-slate-900 px-6 py-5 flex justify-between items-center z-10 border-b border-slate-800 rounded-b-3xl">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold border border-emerald-500/30">
+               {user.email?.[0].toUpperCase()}
+            </div>
+            <div>
+              <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-tight">Patrimonio</p>
+              <p className={`font-bold text-lg leading-none ${dashboardStats.netWorth < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                {formatCurrency(dashboardStats.netWorth)}
+              </p>
+            </div>
           </div>
-        )}
+          <button onClick={() => setActiveTab('settings')} className="text-slate-500 hover:text-emerald-400 transition-colors p-2">
+            <Settings size={20} />
+          </button>
+        </header>
+
+        {/* Contenedor del Main: Ajustamos el padding y el ancho máximo */}
+        <main className="flex-1 overflow-y-auto pb-32 md:pb-12 p-4 md:p-12 hide-scrollbar">
+          <div className="max-w-5xl mx-auto space-y-8">
+            {activeTab === 'dashboard' && <DashboardView stats={dashboardStats} transactions={transactions} categories={categories} deleteTx={deleteTransaction} openModal={setModalConfig} />}
+            {activeTab === 'accounts' && <AccountsView accounts={accounts} transactions={transactions} openModal={setModalConfig} deleteTx={deleteTransaction} />}
+            {activeTab === 'cards' && <CreditCardsView cards={creditCards} transactions={transactions} openModal={setModalConfig} deleteTx={deleteTransaction} />}
+            {activeTab === 'loans' && <LoansView loans={loans} transactions={transactions} openModal={setModalConfig} deleteTx={deleteTransaction} />}
+            {activeTab === 'settings' && <SettingsView categories={categories} subscriptions={subscriptions} openModal={setModalConfig} userEmail={user.email} refresh={fetchInitialData} />}
+          </div>
+        </main>
+
+        {/* Navegación Inferior Móvil (Oculta en desktop) */}
+        <nav className="md:hidden fixed bottom-0 w-full bg-slate-900/80 backdrop-blur-xl border-t border-slate-800 px-6 py-4 flex justify-between items-center z-40 pb-safe">
+          <NavItem icon={<Home />} label="Inicio" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
+          <NavItem icon={<Wallet />} label="Cuentas" active={activeTab === 'accounts'} onClick={() => setActiveTab('accounts')} />
+          <div className="w-12"></div> {/* Espacio para el FAB */}
+          <NavItem icon={<CreditCard />} label="Tarjetas" active={activeTab === 'cards'} onClick={() => setActiveTab('cards')} />
+          <NavItem icon={<Landmark />} label="Préstamos" active={activeTab === 'loans'} onClick={() => setActiveTab('loans')} />
+        </nav>
+
+        {/* FAB Reubicado para ser responsivo */}
+        <div className="fixed bottom-6 right-6 md:bottom-12 md:right-12 z-50">
+          <button 
+            onClick={() => setIsFabOpen(!isFabOpen)} 
+            className={`w-16 h-16 rounded-2xl bg-emerald-500 text-slate-950 flex items-center justify-center shadow-2xl shadow-emerald-500/20 transition-all hover:scale-110 active:scale-95 ${isFabOpen ? 'rotate-45 bg-slate-800 text-emerald-500' : ''}`}
+          >
+            <Plus size={32} strokeWidth={3} />
+          </button>
+          
+          {isFabOpen && (
+            <div className="absolute bottom-20 right-0 flex flex-col items-end gap-3 pb-2 animate-fade-in-up w-max">
+              <FabOption icon={<ArrowRightLeft size={18} />} label="Transferencia" color="bg-indigo-500" onClick={() => {setModalConfig({type: 'transfer'}); setIsFabOpen(false);}} />
+              <FabOption icon={<TrendingDown size={18} />} label="Gasto" color="bg-rose-500" onClick={() => {setModalConfig({type: 'expense'}); setIsFabOpen(false);}} />
+              <FabOption icon={<TrendingUp size={18} />} label="Ingreso" color="bg-emerald-500" onClick={() => {setModalConfig({type: 'income'}); setIsFabOpen(false);}} />
+            </div>
+          )}
+        </div>
       </div>
+
+      {modalConfig && (
+        <ActionModal 
+          config={modalConfig} 
+          onClose={() => setModalConfig(null)} 
+          userId={user.id}
+          categories={categories}
+          accounts={accounts}
+          creditCards={creditCards}
+          refresh={fetchInitialData}
+          showToast={showToast}
+          deleteEntity={deleteEntity}
+        />
+      )}
+    </div>
+  );
+}
 
       {modalConfig && (
         <ActionModal 
