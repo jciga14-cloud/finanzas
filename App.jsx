@@ -301,7 +301,7 @@ export default function App() {
           </button>
           
           {isFabOpen && (
-            <div className="absolute bottom-20 right-0 flex flex-col items-end gap-3 pb-2 animate-fade-in-up w-max">
+            <div className="absolute bottom-20 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-0 flex flex-col items-center md:items-end gap-3 pb-2 animate-fade-in-up w-max">
               <FabOption icon={<ArrowRightLeft size={18} />} label="Transferencia" color="bg-indigo-500" onClick={() => {setModalConfig({type: 'transfer'}); setIsFabOpen(false);}} />
               <FabOption icon={<TrendingDown size={18} />} label="Gasto" color="bg-rose-500" onClick={() => {setModalConfig({type: 'expense'}); setIsFabOpen(false);}} />
               <FabOption icon={<TrendingUp size={18} />} label="Ingreso" color="bg-emerald-500" onClick={() => {setModalConfig({type: 'income'}); setIsFabOpen(false);}} />
