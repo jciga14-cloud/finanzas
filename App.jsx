@@ -287,13 +287,12 @@ export default function App() {
         <nav className="md:hidden fixed bottom-0 w-full bg-slate-900/80 backdrop-blur-xl border-t border-slate-800 px-6 py-4 flex justify-between items-center z-40 pb-safe">
           <NavItem icon={<Home />} label="Inicio" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
           <NavItem icon={<Wallet />} label="Cuentas" active={activeTab === 'accounts'} onClick={() => setActiveTab('accounts')} />
-          <div className="w-12"></div> {/* Espacio para el FAB */}
           <NavItem icon={<CreditCard />} label="Tarjetas" active={activeTab === 'cards'} onClick={() => setActiveTab('cards')} />
           <NavItem icon={<Landmark />} label="Préstamos" active={activeTab === 'loans'} onClick={() => setActiveTab('loans')} />
         </nav>
 
         {/* FAB Reubicado para ser responsivo */}
-        <div className="fixed bottom-6 right-6 md:bottom-12 md:right-12 z-50">
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 md:bottom-12 md:right-12 md:translate-x-0 z-50">
           <button 
             onClick={() => setIsFabOpen(!isFabOpen)} 
             className={`w-16 h-16 rounded-2xl bg-emerald-500 text-slate-950 flex items-center justify-center shadow-2xl shadow-emerald-500/20 transition-all hover:scale-110 active:scale-95 ${isFabOpen ? 'rotate-45 bg-slate-800 text-emerald-500' : ''}`}
