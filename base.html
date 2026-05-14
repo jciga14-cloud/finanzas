@@ -1,0 +1,867 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  Home, CreditCard, Wallet, Landmark, Plus, 
+  AlertCircle, TrendingUp, TrendingDown, LogOut, 
+  Calendar, Activity, PieChart, Settings, X,
+  History, ChevronDown, ChevronUp, ArrowDownRight, ArrowUpRight,
+  ArrowRightLeft, Target, PiggyBank, Car, Edit2, Trash2, Repeat
+} from 'lucide-react';
+import { initializeApp } from 'firebase/app';
+import { 
+  getAuth, signInWithCustomToken, signInAnonymously, 
+  onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut 
+} from 'firebase/auth';
+import { 
+  getFirestore, collection, onSnapshot, addDoc, 
+  doc, updateDoc, deleteDoc, setDoc 
+} from 'firebase/firestore';
+
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'finance-app-v6';
+
+const formatCurrency = (amount) => {
+  return new Intl.NumberFormat('es-PA', { style: 'currency', currency: 'USD' }).format(amount || 0);
+};
+
+const formatInputValue = (val) => {
+  if (!val) return '';
+  return val;
+};
+
+const handleBlurFormatting = (val, setter) => {
+  if (!val) return;
+  const num = parseFloat(val);
+  if (!isNaN(num)) setter(num.toFixed(2));
+};
+
+const getDaysUntil = (dateString) => {
+  if (!dateString) return null;
+  const target = new Date(dateString);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffTime = target - today;
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+};
+
+const DEFAULT_CATEGORIES = {
+  income: ['💰 Salario', '💼 Negocio', '📈 Inversiones', '🎁 Otros'],
+  expense: ['🛒 Alimentos', '🚗 Transporte', '💡 Servicios', '🎬 Ocio', '💊 Salud', '📚 Educación', '📦 Otros'],
+  monthlyBudget: 1000
+};
+
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [isFabOpen, setIsFabOpen] = useState(false);
+  const [modalConfig, setModalConfig] = useState(null); 
+  const [toastMessage, setToastMessage] = useState(null);
+  
+  const [creditCards, setCreditCards] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [accounts, setAccounts] = useState([]);
+  const [loans, setLoans] = useState([]);
+  const [subscriptions, setSubscriptions] = useState([]);
+  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (error) {
+        console.error("Auth error:", error);
+      }
+    };
+    initAuth();
+
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const basePath = `artifacts/${appId}/users/${user.uid}`;
+    
+    const unsubCards = onSnapshot(collection(db, basePath, 'creditCards'), (snap) => setCreditCards(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    const unsubTx = onSnapshot(collection(db, basePath, 'transactions'), (snap) => setTransactions(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    const unsubAcc = onSnapshot(collection(db, basePath, 'accounts'), (snap) => setAccounts(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    const unsubLoans = onSnapshot(collection(db, basePath, 'loans'), (snap) => setLoans(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    const unsubSub = onSnapshot(collection(db, basePath, 'subscriptions'), (snap) => setSubscriptions(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    
+    const unsubSettings = onSnapshot(doc(db, basePath, 'settings', 'user_preferences'), (docSnap) => {
+      if (docSnap.exists()) setCategories(docSnap.data());
+      else setDoc(doc(db, basePath, 'settings', 'user_preferences'), DEFAULT_CATEGORIES);
+    });
+
+    return () => { unsubCards(); unsubTx(); unsubAcc(); unsubLoans(); unsubSub(); unsubSettings(); };
+  }, [user]);
+
+  const showToast = (msg, type = 'success') => {
+    setToastMessage({ msg, type });
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const dashboardStats = useMemo(() => {
+    let totalIncome = 0;
+    let totalExpenses = 0;
+    const categoryTotals = {};
+    let netWorth = 0;
+
+    accounts.forEach(a => netWorth += (Number(a.balance) || 0));
+    creditCards.forEach(c => netWorth -= (Number(c.balance) || 0));
+    loans.forEach(l => netWorth -= (Number(l.pendingBalance) || 0));
+
+    transactions.forEach(tx => {
+      const amt = Number(tx.amount) || 0;
+      if (tx.type === 'income') totalIncome += amt;
+      if (['expense', 'card_payment', 'loan_payment'].includes(tx.type) && tx.fromAccountId !== 'external') {
+         totalExpenses += amt;
+         if (tx.type === 'expense') {
+           categoryTotals[tx.category] = (categoryTotals[tx.category] || 0) + amt;
+         }
+      }
+    });
+
+    const upcoming = [];
+    creditCards.forEach(c => {
+      const days = getDaysUntil(c.paymentDate);
+      if (days !== null) {
+        if (days < 0) upcoming.push({ ...c, type: 'Card Due', days, title: 'Tarjeta Atrasada', isLate: true });
+        else if (days <= 7) upcoming.push({ ...c, type: 'Card Due', days, title: 'Pago Tarjeta', isLate: false });
+      }
+    });
+    loans.forEach(l => {
+      const days = getDaysUntil(l.paymentDate);
+      if (days !== null) {
+        if (days < 0) upcoming.push({ ...l, type: 'Loan Due', days, title: 'Préstamo Atrasado', isLate: true });
+        else if (days <= 7) upcoming.push({ ...l, type: 'Loan Due', days, title: 'Cuota Préstamo', isLate: false });
+      }
+    });
+    subscriptions.forEach(s => {
+      const days = getDaysUntil(s.nextPaymentDate);
+      if (days !== null) {
+        if (days < 0) upcoming.push({ ...s, type: 'Subscription', days, title: 'Recibo Atrasado', isLate: true });
+        else if (days <= 7) upcoming.push({ ...s, type: 'Subscription', days, title: 'Recibo Próximo', isLate: false });
+      }
+    });
+    
+    upcoming.sort((a, b) => a.days - b.days);
+
+    return { totalIncome, totalExpenses, cashFlow: totalIncome - totalExpenses, categoryTotals, upcoming, netWorth };
+  }, [transactions, creditCards, loans, accounts, subscriptions]);
+
+  const deleteTransaction = async (tx) => {
+    const basePath = `artifacts/${appId}/users/${user.uid}`;
+    try {
+      if (tx.type === 'expense' || tx.type === 'income') {
+        if (tx.fromAccountId && tx.fromAccountId !== 'external' && tx.fromAccountId !== 'credit_card') {
+          const acc = accounts.find(a => a.id === tx.fromAccountId);
+          if (acc) {
+            const newBal = tx.type === 'expense' ? Number(acc.balance) + Number(tx.amount) : Number(acc.balance) - Number(tx.amount);
+            await updateDoc(doc(db, basePath, 'accounts', tx.fromAccountId), { balance: newBal });
+          }
+        }
+      } 
+      else if (tx.type === 'card_payment' || tx.type === 'loan_payment') {
+        const isCard = tx.type === 'card_payment';
+        const coll = isCard ? 'creditCards' : 'loans';
+        const itemRef = doc(db, basePath, coll, tx.relatedId);
+        const item = isCard ? creditCards.find(c => c.id === tx.relatedId) : loans.find(l => l.id === tx.relatedId);
+        
+        if (item) {
+          if (isCard) await updateDoc(itemRef, { balance: Number(item.balance) + Number(tx.amount) });
+          else await updateDoc(itemRef, { 
+            pendingBalance: Number(item.pendingBalance) + Number(tx.amount),
+            remainingInstallments: tx.isFullQuota ? Number(item.remainingInstallments) + 1 : item.remainingInstallments
+          });
+
+          if (tx.isFullQuota && item.paymentDate) {
+            const d = new Date(item.paymentDate);
+            d.setMonth(d.getMonth() - 1);
+            await updateDoc(itemRef, { paymentDate: d.toISOString().split('T')[0] });
+          }
+
+          if (tx.fromAccountId && tx.fromAccountId !== 'external') {
+            const acc = accounts.find(a => a.id === tx.fromAccountId);
+            if (acc) await updateDoc(doc(db, basePath, 'accounts', tx.fromAccountId), { balance: Number(acc.balance) + Number(tx.amount) });
+          }
+        }
+      }
+      else if (tx.type === 'transfer') {
+         const from = accounts.find(a => a.id === tx.fromAccountId);
+         const to = accounts.find(a => a.id === tx.toAccountId);
+         if(from) await updateDoc(doc(db, basePath, 'accounts', tx.fromAccountId), { balance: Number(from.balance) + Number(tx.amount) });
+         if(to) await updateDoc(doc(db, basePath, 'accounts', tx.toAccountId), { balance: Number(to.balance) - Number(tx.amount) });
+      }
+      
+      await deleteDoc(doc(db, basePath, 'transactions', tx.id));
+      showToast('Movimiento eliminado y saldo restaurado', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('Error al eliminar', 'error');
+    }
+  };
+
+  const deleteEntity = async (coll, id) => {
+    try {
+      await deleteDoc(doc(db, `artifacts/${appId}/users/${user.uid}/${coll}`, id));
+      showToast('Eliminado correctamente', 'success');
+      setModalConfig(null);
+    } catch(err) {
+      showToast('Error al eliminar', 'error');
+    }
+  };
+
+  if (!user) return <div className="flex items-center justify-center h-screen bg-slate-950"><Activity className="text-emerald-500 w-12 h-12 animate-pulse" /></div>;
+
+  return (
+    <div className="max-w-md mx-auto h-screen flex flex-col bg-slate-950 text-slate-300 shadow-2xl relative overflow-hidden sm:rounded-3xl sm:h-[95vh] sm:mt-[2.5vh]">
+      
+      {toastMessage && (
+        <div className={`absolute top-4 left-1/2 -translate-x-1/2 z-[100] px-4 py-2 rounded-full font-bold text-sm shadow-lg animate-fade-in-up flex items-center gap-2 ${toastMessage.type === 'error' ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-slate-900'}`}>
+          {toastMessage.type === 'error' ? <AlertCircle size={16}/> : <Activity size={16}/>} {toastMessage.msg}
+        </div>
+      )}
+
+      <header className="bg-slate-900 px-6 py-5 flex justify-between items-center z-10 rounded-b-3xl shadow-md border-b border-slate-800">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold border border-emerald-500/30">
+             {user.isAnonymous ? 'U' : user.email?.[0].toUpperCase()}
+          </div>
+          <div>
+            <p className="text-[10px] text-slate-400 font-semibold tracking-wide uppercase">Patrimonio Neto</p>
+            <p className={`font-bold text-lg leading-none mt-1 ${dashboardStats.netWorth < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+              {formatCurrency(dashboardStats.netWorth)}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+           <button onClick={() => setActiveTab('settings')} className={`p-2 rounded-full transition ${activeTab === 'settings' ? 'bg-slate-800 text-emerald-400' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>
+              <Settings size={20} />
+           </button>
+        </div>
+      </header>
+
+      <main className="flex-1 overflow-y-auto pb-24 hide-scrollbar">
+        {activeTab === 'dashboard' && <DashboardView stats={dashboardStats} transactions={transactions} categories={categories} openModal={setModalConfig} deleteTx={deleteTransaction} />}
+        {activeTab === 'accounts' && <AccountsView accounts={accounts} transactions={transactions} openModal={setModalConfig} deleteTx={deleteTransaction} userId={user.uid} />}
+        {activeTab === 'cards' && <CreditCardsView cards={creditCards} transactions={transactions} accounts={accounts} openModal={setModalConfig} deleteTx={deleteTransaction} />}
+        {activeTab === 'loans' && <LoansView loans={loans} transactions={transactions} accounts={accounts} openModal={setModalConfig} deleteTx={deleteTransaction} />}
+        {activeTab === 'settings' && <SettingsView categories={categories} subscriptions={subscriptions} userId={user.uid} openModal={setModalConfig} auth={auth} />}
+      </main>
+
+      <nav className="absolute bottom-0 w-full bg-slate-900 border-t border-slate-800 px-6 py-4 flex justify-between items-center z-40 pb-safe">
+        <NavItem icon={<Home />} label="Inicio" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
+        <NavItem icon={<Wallet />} label="Cuentas" active={activeTab === 'accounts'} onClick={() => setActiveTab('accounts')} />
+        <div className="w-12"></div>
+        <NavItem icon={<CreditCard />} label="Tarjetas" active={activeTab === 'cards'} onClick={() => setActiveTab('cards')} />
+        <NavItem icon={<Landmark />} label="Préstamos" active={activeTab === 'loans'} onClick={() => setActiveTab('loans')} />
+      </nav>
+
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50">
+        <button onClick={() => setIsFabOpen(!isFabOpen)} className={`w-14 h-14 rounded-full bg-emerald-500 text-slate-950 shadow-[0_0_15px_rgba(16,185,129,0.4)] flex items-center justify-center transition-transform duration-300 ${isFabOpen ? 'rotate-45 bg-slate-800 text-emerald-500 shadow-none' : ''}`}>
+          <Plus size={28} />
+        </button>
+        
+        {isFabOpen && (
+          <div className="absolute bottom-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 pb-2 animate-fade-in-up w-max">
+            <FabOption icon={<ArrowRightLeft size={18} />} label="Transferencia" color="bg-indigo-500" onClick={() => {setModalConfig({type: 'transfer'}); setIsFabOpen(false);}} />
+            <FabOption icon={<TrendingDown size={18} />} label="Gasto" color="bg-rose-500" onClick={() => {setModalConfig({type: 'expense'}); setIsFabOpen(false);}} />
+            <FabOption icon={<TrendingUp size={18} />} label="Ingreso" color="bg-emerald-500" onClick={() => {setModalConfig({type: 'income'}); setIsFabOpen(false);}} />
+          </div>
+        )}
+      </div>
+
+      {modalConfig && (
+        <ActionModal 
+          config={modalConfig} 
+          onClose={() => setModalConfig(null)} 
+          userId={user.uid}
+          categories={categories}
+          creditCards={creditCards}
+          accounts={accounts}
+          deleteEntity={deleteEntity}
+          showToast={showToast}
+        />
+      )}
+    </div>
+  );
+}
+
+function NavItem({ icon, label, active, onClick }) {
+  return (
+    <button onClick={onClick} className={`flex flex-col items-center gap-1 transition-colors ${active ? 'text-emerald-400' : 'text-slate-500 hover:text-slate-300'}`}>
+      {React.cloneElement(icon, { size: 22, strokeWidth: active ? 2.5 : 2 })}
+      <span className="text-[10px] font-medium">{label}</span>
+    </button>
+  );
+}
+
+function FabOption({ icon, label, color, onClick }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="bg-slate-800 border border-slate-700 text-slate-300 text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg">{label}</span>
+      <button onClick={onClick} className={`w-10 h-10 rounded-full ${color} text-white shadow-lg flex items-center justify-center transform hover:scale-110 transition`}>{icon}</button>
+    </div>
+  );
+}
+
+function EmptyState({ icon, title, desc }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 text-center px-6">
+      <div className="w-20 h-20 bg-slate-900 border border-slate-800 rounded-full flex items-center justify-center text-slate-500 mb-4 shadow-inner">{icon}</div>
+      <h3 className="font-bold text-slate-300 text-lg mb-1">{title}</h3>
+      <p className="text-sm text-slate-500">{desc}</p>
+    </div>
+  );
+}
+
+function TransactionItem({ tx, onDelete }) {
+  const isInc = tx.type === 'income';
+  const isTrans = tx.type === 'transfer';
+  return (
+    <div className="flex justify-between items-center border-b border-slate-800/50 py-3 last:border-0 group">
+      <div className="flex items-center gap-3">
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isInc ? 'bg-emerald-500/20 text-emerald-400' : isTrans ? 'bg-indigo-500/20 text-indigo-400' : 'bg-rose-500/20 text-rose-400'}`}>
+          {isInc ? <ArrowUpRight size={16}/> : isTrans ? <ArrowRightLeft size={16}/> : <ArrowDownRight size={16}/>}
+        </div>
+        <div>
+          <p className="font-semibold text-sm text-slate-200">{tx.description}</p>
+          <p className="text-[10px] text-slate-500">{tx.date} • {tx.category || 'Movimiento'}</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <p className={`font-bold text-sm ${isInc ? 'text-emerald-400' : isTrans ? 'text-indigo-400' : 'text-slate-300'}`}>
+          {isInc ? '+' : isTrans ? '' : '-'}{formatCurrency(tx.amount)}
+        </p>
+        <button onClick={() => onDelete(tx)} className="text-slate-600 hover:text-rose-500 transition p-1 bg-slate-900 rounded-full border border-slate-800">
+          <Trash2 size={12}/>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DashboardView({ stats, transactions, categories, openModal, deleteTx }) {
+  const recentTx = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+  const budget = categories.monthlyBudget || 0;
+  const budgetProgress = budget > 0 ? Math.min((stats.totalExpenses / budget) * 100, 100) : 0;
+
+  return (
+    <div className="p-6 space-y-6 animate-fade-in">
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full -mr-10 -mt-10 blur-2xl"></div>
+        <p className="text-slate-400 font-medium text-sm mb-1">Flujo de Caja Mensual</p>
+        <h2 className={`text-4xl font-bold tracking-tight mb-6 ${stats.cashFlow < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+          {formatCurrency(stats.cashFlow)}
+        </h2>
+        <div className="flex justify-between gap-4">
+          <div className="bg-slate-950/50 rounded-2xl p-3 flex-1 border border-slate-800">
+            <div className="flex items-center gap-1 text-emerald-400 mb-1"><TrendingUp size={14} /> <span className="text-xs font-semibold">Ingresos</span></div>
+            <p className="font-bold text-slate-200">{formatCurrency(stats.totalIncome)}</p>
+          </div>
+          <div className="bg-slate-950/50 rounded-2xl p-3 flex-1 border border-slate-800">
+            <div className="flex items-center gap-1 text-rose-400 mb-1"><TrendingDown size={14} /> <span className="text-xs font-semibold">Salidas</span></div>
+            <p className="font-bold text-slate-200">{formatCurrency(stats.totalExpenses)}</p>
+          </div>
+        </div>
+      </div>
+
+      {budget > 0 && (
+        <div className="bg-slate-900 p-5 rounded-2xl shadow-sm border border-slate-800">
+          <div className="flex justify-between items-end mb-2">
+            <h3 className="font-bold text-slate-300 flex items-center gap-2"><Target size={18} className="text-indigo-400"/> Presupuesto</h3>
+            <span className="text-xs font-bold text-slate-500">{budgetProgress.toFixed(0)}%</span>
+          </div>
+          <div className="w-full bg-slate-950 rounded-full h-3 mb-2 border border-slate-800 overflow-hidden">
+            <div className={`h-full transition-all ${stats.totalExpenses > budget ? 'bg-rose-500' : 'bg-indigo-500'}`} style={{ width: `${budgetProgress}%` }}></div>
+          </div>
+          <p className="text-[10px] text-slate-500 flex justify-between font-semibold">
+            <span>Usado: {formatCurrency(stats.totalExpenses)}</span>
+            <span>Límite: {formatCurrency(budget)}</span>
+          </p>
+        </div>
+      )}
+
+      {stats.upcoming.length > 0 && (
+        <div>
+          <h3 className="font-bold text-slate-300 mb-4 flex items-center gap-2"><AlertCircle size={18} className="text-amber-500"/> Próximos Pagos</h3>
+          <div className="space-y-3">
+            {stats.upcoming.map((item, i) => (
+              <div key={i} className={`p-4 rounded-2xl border flex justify-between items-center ${item.isLate ? 'bg-rose-950/20 border-rose-900/50' : 'bg-slate-900 border-slate-800'}`}>
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${item.isLate ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-800 text-emerald-400'}`}>
+                    {item.type === 'Subscription' ? <Repeat size={18}/> : item.type === 'Card Due' ? <CreditCard size={18}/> : <Landmark size={18}/>}
+                  </div>
+                  <div>
+                    <p className="font-bold text-sm text-slate-200">{item.name}</p>
+                    <p className={`text-[10px] font-bold ${item.isLate ? 'text-rose-400' : 'text-slate-500'}`}>{item.isLate ? '¡Atrasado!' : `Faltan ${item.days} días`}</p>
+                  </div>
+                </div>
+                <div className="text-right flex flex-col items-end">
+                  <p className="font-bold text-rose-400 mb-1">
+                    {item.type === 'Loan Due' ? formatCurrency(item.pendingBalance / item.remainingInstallments) : formatCurrency(item.balance || item.amount)}
+                  </p>
+                  <button onClick={() => openModal({ type: item.type === 'Subscription' ? 'pay_subscription' : item.type === 'Card Due' ? 'pay_card' : 'pay_loan', relatedItem: item })} className="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1 rounded-lg transition font-bold border border-slate-700">Pagar</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <h3 className="font-bold text-slate-300 mb-4 flex items-center gap-2"><History size={18} className="text-slate-500"/> Actividad Reciente</h3>
+        <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-1">
+          {recentTx.length > 0 ? recentTx.map(tx => <TransactionItem key={tx.id} tx={tx} onDelete={deleteTx} />) : <p className="text-xs text-slate-500 text-center py-4">Sin actividad reciente.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AccountsView({ accounts, transactions, openModal, deleteTx, userId }) {
+  const [expandedId, setExpandedId] = useState(null);
+  const liquid = accounts.filter(a => a.type !== 'Activo Fijo');
+  const assets = accounts.filter(a => a.type === 'Activo Fijo');
+
+  return (
+    <div className="p-6 space-y-6 animate-fade-in">
+      <div>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="font-bold text-xl text-slate-200">Cuentas y Efectivo</h2>
+          <button onClick={() => openModal({type: 'account'})} className="text-xs bg-emerald-500/10 text-emerald-400 font-bold px-3 py-1.5 rounded-lg border border-emerald-500/20 hover:bg-emerald-500/20 transition">+ Añadir</button>
+        </div>
+        {liquid.map(acc => (
+          <div key={acc.id} className="bg-slate-900 p-5 rounded-3xl border border-slate-800 mb-4 relative">
+            <button onClick={() => openModal({type: 'account', isEdit: true, relatedItem: acc})} className="absolute top-4 right-4 bg-slate-950 border border-slate-800 p-2 rounded-full text-slate-500 hover:text-emerald-400 transition"><Edit2 size={12}/></button>
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center text-emerald-500"><Wallet size={20} /></div>
+              <div className="flex-1 pr-8">
+                <h3 className="font-bold text-slate-200">{acc.name}</h3>
+                <p className="text-xs text-slate-500 capitalize">{acc.type}</p>
+              </div>
+            </div>
+            <p className="font-bold text-2xl text-emerald-400 mb-4">{formatCurrency(acc.balance)}</p>
+            <button onClick={() => setExpandedId(expandedId === acc.id ? null : acc.id)} className="w-full flex justify-between items-center text-xs font-semibold text-slate-500 bg-slate-950 p-3 rounded-xl border border-slate-800">
+              <span>Historial de movimientos</span>{expandedId === acc.id ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+            </button>
+            {expandedId === acc.id && (
+              <div className="mt-2 space-y-1">
+                {transactions.filter(t => t.relatedId === acc.id || t.fromAccountId === acc.id || t.toAccountId === acc.id).map(tx => <TransactionItem key={tx.id} tx={tx} onDelete={deleteTx} />)}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div>
+        <h2 className="font-bold text-lg text-slate-200 mb-3 pt-4 border-t border-slate-800">Activos Fijos</h2>
+        {assets.map(asset => (
+          <div key={asset.id} className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex justify-between items-center mb-3 relative">
+            <button onClick={() => openModal({type: 'account', isEdit: true, relatedItem: asset})} className="absolute top-2 right-2 text-slate-600 hover:text-emerald-400"><Edit2 size={12}/></button>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center text-slate-400"><Car size={18} /></div>
+              <div><h3 className="font-bold text-sm text-slate-200">{asset.name}</h3><p className="text-[10px] text-slate-500 uppercase">Patrimonio</p></div>
+            </div>
+            <p className="font-bold text-emerald-400 pr-4">{formatCurrency(asset.balance)}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CreditCardsView({ cards, transactions, accounts, openModal, deleteTx }) {
+  const [expandedId, setExpandedId] = useState(null);
+
+  return (
+    <div className="p-6 space-y-4 animate-fade-in">
+      <div className="flex justify-between items-center mb-2">
+        <h2 className="font-bold text-xl text-slate-200">Tarjetas de Crédito</h2>
+        <button onClick={() => openModal({type: 'card'})} className="text-xs bg-emerald-500/10 text-emerald-400 font-bold px-3 py-1.5 rounded-lg border border-emerald-500/20">+ Añadir</button>
+      </div>
+      {cards.map(card => {
+        const util = ((card.balance / card.limit) * 100).toFixed(1);
+        const isHigh = util > 75;
+        const avail = card.limit - card.balance;
+        
+        return (
+          <div key={card.id} className="bg-slate-900 p-5 rounded-3xl border border-slate-800 relative">
+            <button onClick={() => openModal({type: 'card', isEdit: true, relatedItem: card})} className="absolute top-4 right-4 bg-slate-950 border border-slate-700 p-2 rounded-full text-slate-400 hover:text-emerald-400 transition z-10"><Edit2 size={12}/></button>
+            <div className="flex justify-between items-start mb-4 pr-8">
+              <div><h3 className="font-bold text-slate-200">{card.name}</h3><p className="text-xs text-slate-500">{card.bank}</p></div>
+              <div className="text-right"><p className="font-bold text-lg text-rose-400">{formatCurrency(card.balance)}</p><p className="text-[10px] font-bold text-slate-500 uppercase">Deuda Actual</p></div>
+            </div>
+            <div className="mb-4 bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
+              <div><p className="text-[10px] text-slate-500 font-bold uppercase">Disponible para gastar</p><p className="font-bold text-emerald-400">{formatCurrency(avail)}</p></div>
+              <div className="text-right"><p className="text-[10px] text-slate-500 font-bold uppercase">Límite Total</p><p className="font-bold text-slate-300">{formatCurrency(card.limit)}</p></div>
+            </div>
+            <div className="mb-4">
+              <div className="w-full bg-slate-950 rounded-full h-2 border border-slate-800 overflow-hidden"><div className={`h-full ${isHigh ? 'bg-rose-500' : 'bg-emerald-500'}`} style={{ width: `${util}%` }}></div></div>
+              <p className="text-right text-[10px] text-slate-500 mt-1">{util}% Utilizado</p>
+            </div>
+            <div className="flex gap-2 mb-4">
+              <button onClick={() => openModal({type: 'card_expense', relatedItem: card})} className="flex-1 bg-slate-800 text-rose-400 font-bold py-2 rounded-lg text-xs hover:bg-slate-700 transition border border-slate-700">+ Cargar Gasto</button>
+              <button onClick={() => openModal({type: 'pay_card', relatedItem: card})} className="flex-1 bg-emerald-500/20 text-emerald-400 font-bold py-2 rounded-lg text-xs hover:bg-emerald-500/30 transition border border-emerald-500/30">Pagar Tarjeta</button>
+            </div>
+            <button onClick={() => setExpandedId(expandedId === card.id ? null : card.id)} className="w-full flex justify-between items-center text-xs font-semibold text-slate-500 bg-slate-950 p-3 rounded-xl border border-slate-800">
+              <span>Historial de la tarjeta</span>{expandedId === card.id ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+            </button>
+            {expandedId === card.id && <div className="mt-2 space-y-1">{transactions.filter(t => t.relatedId === card.id).map(tx => <TransactionItem key={tx.id} tx={tx} onDelete={deleteTx} />)}</div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function LoansView({ loans, transactions, openModal, deleteTx }) {
+  const [expandedId, setExpandedId] = useState(null);
+
+  return (
+    <div className="p-6 space-y-4 animate-fade-in">
+      <div className="flex justify-between items-center mb-2">
+        <h2 className="font-bold text-xl text-slate-200">Préstamos Activos</h2>
+        <button onClick={() => openModal({type: 'loan'})} className="text-xs bg-emerald-500/10 text-emerald-400 font-bold px-3 py-1.5 rounded-lg border border-emerald-500/20">+ Añadir</button>
+      </div>
+      {loans.map(loan => {
+        const prog = (((loan.totalAmount - loan.pendingBalance) / loan.totalAmount) * 100).toFixed(0);
+        const quota = loan.pendingBalance / loan.remainingInstallments;
+        return (
+          <div key={loan.id} className="bg-slate-900 p-5 rounded-3xl border border-slate-800 relative">
+            <button onClick={() => openModal({type: 'loan', isEdit: true, relatedItem: loan})} className="absolute top-4 right-4 bg-slate-950 border border-slate-700 p-2 rounded-full text-slate-400 hover:text-emerald-400 transition z-10"><Edit2 size={12}/></button>
+            <div className="flex justify-between mb-4 pr-8">
+              <h3 className="font-bold text-slate-200">{loan.name}</h3>
+              <span className="bg-rose-500/20 text-rose-400 text-[10px] font-bold px-2 py-1 rounded-lg border border-rose-500/30">{loan.remainingInstallments} cuotas</span>
+            </div>
+            <div className="flex justify-between items-end mb-3">
+               <div><p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Deuda Pendiente</p><p className="font-bold text-2xl text-rose-400">{formatCurrency(loan.pendingBalance)}</p></div>
+               <div className="text-right"><p className="text-[10px] text-slate-500 font-bold uppercase mb-1">Cuota Mensual</p><p className="font-bold text-sm text-slate-300">{formatCurrency(quota)}</p></div>
+            </div>
+            <div className="w-full bg-slate-950 rounded-full h-2 mb-2 border border-slate-800"><div className="bg-emerald-500 h-full rounded-full" style={{ width: `${prog}%` }}></div></div>
+            <button onClick={() => openModal({type: 'pay_loan', relatedItem: loan})} className="w-full mt-3 bg-emerald-500/20 text-emerald-400 font-bold py-3 rounded-xl text-xs hover:bg-emerald-500/30 transition border border-emerald-500/30 mb-4">Pagar Cuota</button>
+            <button onClick={() => setExpandedId(expandedId === loan.id ? null : loan.id)} className="w-full flex justify-between items-center text-xs font-semibold text-slate-500 bg-slate-950 p-3 rounded-xl border border-slate-800">
+              <span>Historial de pagos</span>{expandedId === loan.id ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+            </button>
+            {expandedId === loan.id && <div className="mt-2 space-y-1">{transactions.filter(t => t.relatedId === loan.id).map(tx => <TransactionItem key={tx.id} tx={tx} onDelete={deleteTx} />)}</div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function SettingsView({ categories, subscriptions, userId, openModal, auth }) {
+  const [budget, setBudget] = useState(categories.monthlyBudget || '');
+  const [newCat, setNewCat] = useState('');
+  const [activeList, setActiveList] = useState('expense');
+
+  const saveBudget = () => updateDoc(doc(db, `artifacts/${appId}/users/${userId}/settings/user_preferences`), { monthlyBudget: Number(budget) });
+  
+  const addCategory = async (e) => {
+    e.preventDefault();
+    if (!newCat.trim()) return;
+    const key = activeList === 'expense' ? 'expenseCategories' : 'incomeCategories';
+    const currentList = categories[key] || [];
+    if (!currentList.includes(newCat.trim())) {
+       await updateDoc(doc(db, `artifacts/${appId}/users/${userId}/settings/user_preferences`), { [key]: [...currentList, newCat.trim()] });
+       setNewCat('');
+    }
+  };
+
+  const removeCategory = async (catToRemove) => {
+    const key = activeList === 'expense' ? 'expenseCategories' : 'incomeCategories';
+    const newList = categories[key].filter(c => c !== catToRemove);
+    await updateDoc(doc(db, `artifacts/${appId}/users/${userId}/settings/user_preferences`), { [key]: newList });
+  };
+
+  return (
+    <div className="p-6 space-y-6 animate-fade-in">
+      <h2 className="font-bold text-xl text-slate-200 flex items-center gap-2"><Settings size={24} /> Ajustes</h2>
+
+      {auth.currentUser?.isAnonymous ? (
+        <div className="bg-indigo-500/10 border border-indigo-500/30 p-5 rounded-3xl">
+          <h3 className="font-bold text-indigo-400 mb-2">Vincular cuenta (Nube)</h3>
+          <p className="text-xs text-slate-400 mb-4">Guarda tu progreso permanentemente conectando tu cuenta de Google.</p>
+          <button onClick={() => signInWithPopup(auth, new GoogleAuthProvider())} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg">Vincular con Google</button>
+        </div>
+      ) : (
+        <div className="bg-emerald-500/10 border border-emerald-500/30 p-4 rounded-2xl flex items-center gap-3">
+          <Activity className="text-emerald-500"/><div><p className="text-xs text-emerald-500 font-bold">Bóveda Asegurada</p><p className="text-xs text-slate-400">{auth.currentUser?.email}</p></div>
+        </div>
+      )}
+
+      <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
+        <h3 className="font-bold text-slate-300 mb-2 flex items-center gap-2"><Target size={18} className="text-emerald-500"/> Presupuesto Mensual</h3>
+        <div className="flex gap-2">
+           <input type="number" value={budget} onChange={(e)=>setBudget(e.target.value)} onBlur={saveBudget} className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 font-bold text-slate-200 outline-none focus:border-emerald-500" placeholder="0.00"/>
+           <button onClick={saveBudget} className="bg-emerald-500 text-slate-950 px-4 rounded-xl text-sm font-bold">Guardar</button>
+        </div>
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
+        <div className="flex justify-between items-center mb-4">
+           <h3 className="font-bold text-slate-300 flex items-center gap-2"><Repeat size={18} className="text-indigo-400"/> Suscripciones y Recibos</h3>
+           <button onClick={()=>openModal({type: 'subscription'})} className="text-xs bg-indigo-500/20 text-indigo-400 px-3 py-1.5 rounded-lg font-bold">+ Crear</button>
+        </div>
+        <div className="space-y-2">
+          {subscriptions.map(sub => (
+            <div key={sub.id} className="flex justify-between items-center bg-slate-950 border border-slate-800 p-3 rounded-xl relative pr-10">
+              <button onClick={() => openModal({type: 'subscription', isEdit: true, relatedItem: sub})} className="absolute top-3 right-3 text-slate-500 hover:text-emerald-400"><Edit2 size={12}/></button>
+              <div><p className="font-bold text-sm text-slate-200">{sub.name}</p><p className="text-[10px] text-slate-500">Paga el día {sub.nextPaymentDate?.split('-')[2]}</p></div>
+              <p className="font-bold text-sm text-rose-400">{formatCurrency(sub.amount)}</p>
+            </div>
+          ))}
+          {subscriptions.length === 0 && <p className="text-xs text-slate-500 text-center py-2">No hay recibos automáticos.</p>}
+        </div>
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 p-5 rounded-3xl">
+        <h3 className="font-bold text-slate-300 mb-4">Gestionar Categorías</h3>
+        <div className="flex gap-2 mb-4 bg-slate-950 p-1 rounded-xl border border-slate-800">
+          <button onClick={() => setActiveList('expense')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition ${activeList === 'expense' ? 'bg-slate-800 text-emerald-400' : 'text-slate-500'}`}>Gastos</button>
+          <button onClick={() => setActiveList('income')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition ${activeList === 'income' ? 'bg-slate-800 text-emerald-400' : 'text-slate-500'}`}>Ingresos</button>
+        </div>
+        <form onSubmit={addCategory} className="flex gap-2 mb-4">
+          <input type="text" value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="Ej. ✈️ Viajes" className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-emerald-500 text-slate-200"/>
+          <button type="submit" className="bg-slate-800 text-emerald-400 border border-slate-700 px-4 rounded-xl font-bold">+</button>
+        </form>
+        <div className="space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+          {(activeList === 'expense' ? categories.expenseCategories : categories.incomeCategories)?.map((cat, i) => (
+            <div key={i} className="flex justify-between items-center bg-slate-950 px-3 py-2 rounded-lg text-sm border border-slate-800 text-slate-300">
+              <span>{cat}</span><button onClick={() => removeCategory(cat)} className="text-slate-600 hover:text-rose-500"><X size={14} /></button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ActionModal({ config, onClose, userId, categories, creditCards, accounts, deleteEntity, showToast }) {
+  const [loading, setLoading] = useState(false);
+  const { type, isEdit, relatedItem } = config;
+  const usableAccounts = accounts.filter(a => a.type !== 'Activo Fijo');
+
+  const [amount, setAmount] = useState('');
+  const [name, setName] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [category, setCategory] = useState(categories.expenseCategories?.[0] || 'Otros');
+  const [accountId, setAccountId] = useState('external');
+  const [toAccountId, setToAccountId] = useState(usableAccounts.length > 1 ? usableAccounts[1].id : '');
+  
+  const [bank, setBank] = useState('');
+  const [limit, setLimit] = useState('');
+  const [cutoffDate, setCutoffDate] = useState('');
+  const [installments, setInstallments] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [accType, setAccType] = useState('Ahorro');
+  
+  const [advancesDate, setAdvancesDate] = useState(true);
+  const [isNewDebt, setIsNewDebt] = useState(false);
+
+  useEffect(() => {
+    if (isEdit && relatedItem) {
+      setName(relatedItem.name || '');
+      setAmount(relatedItem.balance ?? relatedItem.pendingBalance ?? relatedItem.amount ?? '');
+      if (type === 'account') setAccType(relatedItem.type);
+      if (type === 'card') { setBank(relatedItem.bank); setLimit(relatedItem.limit); setCutoffDate(relatedItem.cutoffDate); setDate(relatedItem.paymentDate); }
+      if (type === 'loan') { setLimit(relatedItem.totalAmount); setInstallments(relatedItem.remainingInstallments); setDate(relatedItem.paymentDate); setEndDate(relatedItem.endDate); }
+      if (type === 'subscription') { setAccountId(relatedItem.accountId || 'external'); setCategory(relatedItem.category || categories.expenseCategories?.[0]); setDate(relatedItem.nextPaymentDate || ''); }
+    } else {
+      if (type === 'pay_loan' && relatedItem) setAmount((relatedItem.pendingBalance / relatedItem.remainingInstallments).toFixed(2));
+      if (type === 'pay_subscription' && relatedItem) { setAmount(relatedItem.amount); setAccountId(relatedItem.accountId); setCategory(relatedItem.category); }
+      if (usableAccounts.length > 0 && accountId === 'external' && ['expense', 'transfer'].includes(type)) setAccountId(usableAccounts[0].id);
+      if (type === 'income') setCategory(categories.incomeCategories?.[0] || 'Ingreso');
+    }
+  }, [isEdit, relatedItem, type, usableAccounts]);
+
+  const titles = { 
+    expense: 'Gasto de Cuenta', income: 'Nuevo Ingreso', card: 'Nueva Tarjeta', loan: 'Nuevo Préstamo', account: 'Nueva Cuenta/Activo',
+    card_expense: 'Gasto en Tarjeta', pay_card: 'Pagar Tarjeta', pay_loan: 'Pagar Préstamo', transfer: 'Transferencia',
+    subscription: 'Recibo Fijo', pay_subscription: 'Pagar Recibo'
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const numAmt = Number(amount);
+    if (!numAmt || numAmt <= 0) return showToast('Por favor, ingresa un monto válido', 'error');
+    setLoading(true);
+    
+    const basePath = `artifacts/${appId}/users/${userId}`;
+    const numLimit = Number(limit);
+    
+    try {
+      if (isEdit) {
+         let coll = type === 'account' ? 'accounts' : type === 'card' ? 'creditCards' : type === 'loan' ? 'loans' : 'subscriptions';
+         const payload = { name };
+         if (type === 'account') { payload.balance = numAmt; payload.type = accType; }
+         if (type === 'card') { payload.balance = numAmt; payload.bank = bank; payload.limit = numLimit; payload.cutoffDate = cutoffDate; payload.paymentDate = date; }
+         if (type === 'loan') { payload.pendingBalance = numAmt; payload.totalAmount = numLimit; payload.remainingInstallments = Number(installments); payload.paymentDate = date; payload.endDate = endDate; }
+         if (type === 'subscription') { payload.amount = numAmt; payload.category = category; payload.accountId = accountId; payload.nextPaymentDate = date; }
+         await updateDoc(doc(db, basePath, coll, relatedItem.id), payload);
+         showToast('Actualizado correctamente', 'success');
+      }
+      else {
+        if (type === 'account') await addDoc(collection(db, basePath, 'accounts'), { name, type: accType, balance: numAmt, createdAt: new Date().toISOString() });
+        else if (type === 'subscription') await addDoc(collection(db, basePath, 'subscriptions'), { name, amount: numAmt, category, accountId, nextPaymentDate: date, createdAt: new Date().toISOString() });
+        else if (type === 'transfer') {
+          await addDoc(collection(db, basePath, 'transactions'), { type: 'transfer', amount: numAmt, date, description: name || 'Transferencia', fromAccountId: accountId, toAccountId: toAccountId, createdAt: new Date().toISOString() });
+          const from = accounts.find(a => a.id === accountId), to = accounts.find(a => a.id === toAccountId);
+          if(from) await updateDoc(doc(db, basePath, 'accounts', accountId), { balance: Number(from.balance) - numAmt });
+          if(to) await updateDoc(doc(db, basePath, 'accounts', toAccountId), { balance: Number(to.balance) + numAmt });
+        } 
+        else if (type === 'expense' || type === 'income') {
+          await addDoc(collection(db, basePath, 'transactions'), { type, amount: numAmt, category, date, description: name, fromAccountId: accountId, createdAt: new Date().toISOString() });
+          if (accountId !== 'external') {
+            const target = accounts.find(a => a.id === accountId);
+            if(target) await updateDoc(doc(db, basePath, 'accounts', accountId), { balance: type === 'expense' ? Number(target.balance) - numAmt : Number(target.balance) + numAmt });
+          }
+        } 
+        else if (type === 'card_expense') {
+          await addDoc(collection(db, basePath, 'transactions'), { type: 'expense', amount: numAmt, category, date, description: `${name} (Tarjeta)`, relatedId: relatedItem.id, fromAccountId: 'credit_card', createdAt: new Date().toISOString() });
+          await updateDoc(doc(db, basePath, 'creditCards', relatedItem.id), { balance: Number(relatedItem.balance) + numAmt });
+        } 
+        else if (type === 'pay_card' || type === 'pay_loan') {
+          const isCard = type === 'pay_card';
+          await addDoc(collection(db, basePath, 'transactions'), { type: isCard ? 'card_payment' : 'loan_payment', amount: numAmt, date, description: `Pago: ${relatedItem.name}`, relatedId: relatedItem.id, fromAccountId: accountId, isFullQuota: advancesDate, createdAt: new Date().toISOString() });
+          
+          if (isCard) await updateDoc(doc(db, basePath, 'creditCards', relatedItem.id), { balance: Math.max(0, Number(relatedItem.balance) - numAmt) });
+          else await updateDoc(doc(db, basePath, 'loans', relatedItem.id), { pendingBalance: Math.max(0, Number(relatedItem.pendingBalance) - numAmt), remainingInstallments: advancesDate ? Math.max(0, Number(relatedItem.remainingInstallments) - 1) : relatedItem.remainingInstallments });
+          
+          if (advancesDate && relatedItem.paymentDate) {
+             const d = new Date(relatedItem.paymentDate);
+             d.setMonth(d.getMonth() + 1);
+             await updateDoc(doc(db, basePath, isCard ? 'creditCards' : 'loans', relatedItem.id), { paymentDate: d.toISOString().split('T')[0] });
+          }
+
+          if (accountId !== 'external') {
+            const from = accounts.find(a => a.id === accountId);
+            if(from) await updateDoc(doc(db, basePath, 'accounts', accountId), { balance: Number(from.balance) - numAmt });
+          }
+        } 
+        else if (type === 'pay_subscription') {
+          await addDoc(collection(db, basePath, 'transactions'), { type: 'expense', amount: numAmt, category: category, date, description: `Recibo: ${relatedItem.name}`, fromAccountId: accountId, createdAt: new Date().toISOString() });
+          if (accountId !== 'external') {
+             const target = accounts.find(a => a.id === accountId);
+             if(target) await updateDoc(doc(db, basePath, 'accounts', accountId), { balance: Number(target.balance) - numAmt });
+          }
+          const d = new Date(relatedItem.nextPaymentDate);
+          d.setMonth(d.getMonth() + 1);
+          await updateDoc(doc(db, basePath, 'subscriptions', relatedItem.id), { nextPaymentDate: d.toISOString().split('T')[0] });
+          showToast('Recibo pagado y reprogramado', 'success');
+        }
+        else if (type === 'card') {
+          await addDoc(collection(db, basePath, 'creditCards'), { name, bank, limit: numLimit, balance: numAmt, cutoffDate, paymentDate: date, createdAt: new Date().toISOString() });
+        } 
+        else if (type === 'loan') {
+          const lRef = await addDoc(collection(db, basePath, 'loans'), { name, totalAmount: numLimit, pendingBalance: numAmt || numLimit, remainingInstallments: Number(installments), paymentDate: date, endDate, createdAt: new Date().toISOString() });
+          if (isNewDebt && accountId !== 'external') {
+            await addDoc(collection(db, basePath, 'transactions'), { type: 'income', amount: numLimit, category: 'Desembolso Préstamo', date, description: `Préstamo: ${name}`, relatedId: lRef.id, fromAccountId: accountId, createdAt: new Date().toISOString() });
+            const acc = accounts.find(a => a.id === accountId);
+            if(acc) await updateDoc(doc(db, basePath, 'accounts', accountId), { balance: Number(acc.balance) + numLimit });
+          }
+        }
+      }
+      onClose();
+    } catch (err) { console.error(err); showToast('Error al guardar', 'error'); } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-4 animate-fade-in overflow-hidden" style={{ colorScheme: 'dark' }}>
+      <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-6 shadow-2xl relative animate-slide-up max-h-[90vh] overflow-y-auto custom-scrollbar">
+        <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center text-slate-400 font-bold transition hover:bg-slate-700 hover:text-white">✕</button>
+        <h2 className="font-bold text-xl text-slate-200 mb-6 border-b border-slate-800 pb-4 flex justify-between items-center pr-10">
+          <span>{isEdit ? 'Editar' : titles[type]}</span>
+          {isEdit && <button type="button" onClick={() => deleteEntity(type === 'account' ? 'accounts' : type === 'card' ? 'creditCards' : type === 'loan' ? 'loans' : 'subscriptions', relatedItem.id)} className="text-xs bg-rose-500/20 text-rose-400 px-2 py-1 rounded border border-rose-500/30">Borrar</button>}
+        </h2>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {['pay_card', 'pay_loan'].includes(type) && (
+             <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl mb-4 text-center">
+               <p className="text-[10px] text-rose-400 font-bold uppercase mb-1">Deuda Actual</p>
+               <p className="font-bold text-xl text-rose-500">{formatCurrency(relatedItem.balance ?? relatedItem.pendingBalance)}</p>
+             </div>
+          )}
+
+          {['expense', 'income', 'card_expense', 'pay_card', 'pay_loan', 'transfer', 'account', 'subscription', 'pay_subscription'].includes(type) && (
+            <div>
+              <label className="block text-xs font-bold text-slate-400 mb-1">{type === 'account' && accType === 'Activo Fijo' ? 'Valor Estimado ($)' : type === 'account' ? 'Saldo Inicial ($)' : 'Monto ($)'}</label>
+              <input type="number" step="any" required value={amount} onChange={(e)=>setAmount(formatInputValue(e.target.value))} onBlur={(e)=>handleBlurFormatting(e.target.value, setAmount)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-2xl font-bold text-emerald-400 outline-none focus:border-emerald-500 transition" placeholder="0.00"/>
+            </div>
+          )}
+
+          {['expense', 'income', 'card_expense', 'transfer', 'account', 'subscription', 'card', 'loan'].includes(type) && (
+            <div><label className="block text-xs font-bold text-slate-400 mb-1">Nombre / Descripción</label><input type="text" required value={name} onChange={(e)=>setName(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none focus:border-emerald-500"/></div>
+          )}
+
+          {type === 'account' && (
+            <div><label className="block text-xs font-bold text-slate-400 mb-1">Tipo</label><select value={accType} onChange={(e)=>setAccType(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none"><option>Ahorro</option><option>Corriente</option><option>Efectivo</option><option value="Activo Fijo">Activo Fijo</option></select></div>
+          )}
+
+          {['pay_card', 'pay_loan'].includes(type) && (
+            <div className="bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-xl flex items-start gap-3 mt-2">
+              <input type="checkbox" checked={advancesDate} onChange={(e)=>setAdvancesDate(e.target.checked)} className="mt-1 w-4 h-4 accent-emerald-500"/>
+              <div>
+                <p className="text-sm font-bold text-emerald-400">Abono Mensual Fijo</p>
+                <p className="text-[10px] text-slate-400">Desmárcalo si es solo un abono extra y no quieres que la fecha avance al próximo mes.</p>
+              </div>
+            </div>
+          )}
+
+          {type === 'card' && (
+            <>
+              <div><label className="block text-[10px] text-slate-400 mb-1">Banco</label><input type="text" required value={bank} onChange={(e)=>setBank(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-200"/></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="block text-[10px] text-slate-400 mb-1">Límite Total</label><input type="number" step="any" required value={limit} onChange={(e)=>setLimit(e.target.value)} onBlur={(e)=>handleBlurFormatting(e.target.value, setLimit)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-200"/></div>
+                {!isEdit && <div><label className="block text-[10px] text-slate-400 mb-1">Deuda Inicial</label><input type="number" step="any" required value={amount} onChange={(e)=>setAmount(e.target.value)} onBlur={(e)=>handleBlurFormatting(e.target.value, setAmount)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-200"/></div>}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="block text-[10px] text-slate-400 mb-1">Día Corte</label><input type="date" required value={cutoffDate} onChange={(e)=>setCutoffDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-200"/></div>
+                <div><label className="block text-[10px] text-slate-400 mb-1">Próx Pago</label><input type="date" required value={date} onChange={(e)=>setDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-200"/></div>
+              </div>
+            </>
+          )}
+
+          {type === 'loan' && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="block text-[10px] text-slate-400 mb-1">Monto Original</label><input type="number" step="any" required value={limit} onChange={(e)=>setLimit(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-200"/></div>
+                {!isEdit && <div><label className="block text-[10px] text-slate-400 mb-1">Deuda Inicial</label><input type="number" step="any" required value={amount} onChange={(e)=>setAmount(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-200"/></div>}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="block text-[10px] text-slate-400 mb-1">Cuotas Restantes</label><input type="number" required value={installments} onChange={(e)=>setInstallments(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-200"/></div>
+                <div><label className="block text-[10px] text-slate-400 mb-1">Día de Pago (Próx)</label><input type="date" required value={date} onChange={(e)=>setDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-200"/></div>
+              </div>
+              {!isEdit && (
+                <div className="bg-indigo-500/10 border border-indigo-500/20 p-3 rounded-xl mt-2 flex gap-3 items-start">
+                  <input type="checkbox" checked={isNewDebt} onChange={(e)=>setIsNewDebt(e.target.checked)} className="mt-1 w-4 h-4 accent-indigo-500"/>
+                  <div>
+                    <p className="text-sm font-bold text-indigo-400">Es Préstamo NUEVO</p>
+                    <p className="text-[10px] text-slate-400">El dinero se sumará a tus cuentas si seleccionas una de destino abajo.</p>
+                  </div>
+                </div>
+              )}
+              {isNewDebt && !isEdit && (
+                 <div><label className="block text-xs font-bold text-slate-400 mb-1">Depositar el préstamo en:</label><select value={accountId} onChange={(e)=>setAccountId(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-200 outline-none">{usableAccounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}<option value="external">Fondos Externos</option></select></div>
+              )}
+            </>
+          )}
+
+          <button disabled={loading} type="submit" className="w-full mt-6 bg-emerald-500 text-slate-950 font-bold py-4 rounded-xl hover:bg-emerald-400 transition active:scale-95 disabled:opacity-50">
+            {loading ? 'Procesando...' : 'Guardar Información'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
