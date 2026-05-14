@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Target, AlertCircle, Repeat, Wallet, 
-  Edit2, CreditCard, Landmark, LogOut, Car, Activity
+  Edit2, CreditCard, Landmark, LogOut, Car, Activity, X
 } from 'lucide-react';
 import { formatCurrency } from './formatters';
 import { EmptyState, TransactionItem } from './UI';
@@ -159,7 +159,35 @@ export const LoansView = ({ loans, openModal }) => (
   </div>
 );
 
-export const SettingsView = ({ categories, subscriptions, openModal, userEmail, refresh }) => {
+export const SettingsView = ({ categories, subscriptions, openModal, userEmail, userId, refresh }) => {
+  const [budget, setBudget] = useState(categories.monthly_budget || '');
+  const [newCat, setNewCat] = useState('');
+  const [activeList, setActiveList] = useState('expense');
+
+  const saveBudget = async () => {
+    await supabase.from('user_preferences').update({ monthly_budget: Number(budget) }).eq('user_id', userId);
+    refresh();
+  };
+
+  const addCategory = async (e) => {
+    e.preventDefault();
+    if (!newCat.trim()) return;
+    const key = activeList === 'expense' ? 'expense_categories' : 'income_categories';
+    const currentList = categories[key] || [];
+    if (!currentList.includes(newCat.trim())) {
+      await supabase.from('user_preferences').update({ [key]: [...currentList, newCat.trim()] }).eq('user_id', userId);
+      setNewCat('');
+      refresh();
+    }
+  };
+
+  const removeCategory = async (catToRemove) => {
+    const key = activeList === 'expense' ? 'expense_categories' : 'income_categories';
+    const newList = categories[key].filter(c => c !== catToRemove);
+    await supabase.from('user_preferences').update({ [key]: newList }).eq('user_id', userId);
+    refresh();
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="bg-emerald-500/10 border border-emerald-500/30 p-4 rounded-2xl flex items-center gap-3">
@@ -169,6 +197,14 @@ export const SettingsView = ({ categories, subscriptions, openModal, userEmail, 
           <p className="text-xs text-slate-400 font-medium truncate">{userEmail}</p>
         </div>
         <button onClick={() => supabase.auth.signOut()} className="text-slate-600 hover:text-rose-400 transition p-2"><LogOut size={20}/></button>
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl">
+        <h3 className="font-bold text-slate-300 mb-2 flex items-center gap-2 text-sm uppercase"><Target size={18} className="text-emerald-500"/> Presupuesto Mensual</h3>
+        <div className="flex gap-2">
+           <input type="number" value={budget} onChange={(e)=>setBudget(e.target.value)} onBlur={saveBudget} className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 font-bold text-slate-200 outline-none focus:border-emerald-500" placeholder="0.00"/>
+           <button onClick={saveBudget} className="bg-emerald-500 text-slate-950 px-4 rounded-xl text-sm font-bold">Guardar</button>
+        </div>
       </div>
 
       <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl">
@@ -182,6 +218,25 @@ export const SettingsView = ({ categories, subscriptions, openModal, userEmail, 
             <p className="font-bold text-rose-400 text-sm">{formatCurrency(sub.amount)}</p>
           </div>
         ))}
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl">
+        <h3 className="font-bold text-slate-300 mb-4 text-sm uppercase">Gestionar Categorías</h3>
+        <div className="flex gap-2 mb-4 bg-slate-950 p-1 rounded-xl border border-slate-800">
+          <button onClick={() => setActiveList('expense')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${activeList === 'expense' ? 'bg-slate-800 text-emerald-400' : 'text-slate-500'}`}>Gastos</button>
+          <button onClick={() => setActiveList('income')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${activeList === 'income' ? 'bg-slate-800 text-emerald-400' : 'text-slate-500'}`}>Ingresos</button>
+        </div>
+        <form onSubmit={addCategory} className="flex gap-2 mb-4">
+          <input type="text" value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="Ej. ✈️ Viajes" className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-emerald-500 text-slate-200"/>
+          <button type="submit" className="bg-slate-800 text-emerald-400 border border-slate-700 px-4 rounded-xl font-bold">+</button>
+        </form>
+        <div className="space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+          {(activeList === 'expense' ? categories.expense_categories : categories.income_categories)?.map((cat, i) => (
+            <div key={i} className="flex justify-between items-center bg-slate-950 px-3 py-2 rounded-lg text-sm border border-slate-800 text-slate-300">
+              <span>{cat}</span><button onClick={() => removeCategory(cat)} className="text-slate-600 hover:text-rose-500"><X size={14} /></button>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
