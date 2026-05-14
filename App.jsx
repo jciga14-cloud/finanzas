@@ -279,20 +279,3 @@ export default function App() {
     </div>
   );
 }
-
-      {modalConfig && (
-        <ActionModal 
-          config={modalConfig} 
-          onClose={() => setModalConfig(null)} 
-          userId={user.id}
-          categories={categories}
-          accounts={accounts}
-          creditCards={creditCards}
-          refresh={fetchInitialData}
-          showToast={showToast}
-          deleteEntity={deleteEntity}
-        />
-      )}
-    </div>
-  );
-}
