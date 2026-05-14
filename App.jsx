@@ -10,6 +10,17 @@ import { NavItem, FabOption } from './UI';
 import { DashboardView, AccountsView, CreditCardsView, LoansView, SettingsView } from './Views';
 import { ActionModal } from './ActionModal';
 
+export const formatInputValue = (val) => {
+  if (!val) return '';
+  return val;
+};
+
+export const handleBlurFormatting = (val, setter) => {
+  if (!val) return;
+  const num = parseFloat(val);
+  if (!isNaN(num)) setter(num.toFixed(2));
+};
+
 export default function App() {
   // Forzamos un usuario local para desarrollo
   const [user, setUser] = useState({ id: '00000000-0000-0000-0000-000000000000', email: 'usuario@desarrollo.com' });
@@ -117,23 +128,60 @@ export default function App() {
   }, [transactions, creditCards, loans, accounts, subscriptions]);
 
   const deleteTransaction = async (tx) => {
-    // Revertir saldos antes de borrar
     try {
-      if (tx.type === 'expense' || tx.type === 'income') {
+      if (tx.type === 'expense' || tx.type === 'income' || tx.type === 'pay_subscription') {
         if (tx.from_account_id && tx.from_account_id !== 'external' && tx.from_account_id !== 'credit_card') {
           const acc = accounts.find(a => a.id === tx.from_account_id);
           if (acc) {
-            const newBal = tx.type === 'expense' ? Number(acc.balance) + Number(tx.amount) : Number(acc.balance) - Number(tx.amount);
+            const newBal = (tx.type === 'expense' || tx.type === 'pay_subscription') 
+              ? Number(acc.balance) + Number(tx.amount) 
+              : Number(acc.balance) - Number(tx.amount);
             await supabase.from('accounts').update({ balance: newBal }).eq('id', acc.id);
           }
         }
+      } 
+      else if (tx.type === 'card_payment' || tx.type === 'loan_payment') {
+        const isCard = tx.type === 'card_payment';
+        const table = isCard ? 'credit_cards' : 'loans';
+        const item = isCard ? creditCards.find(c => c.id === tx.related_id) : loans.find(l => l.id === tx.related_id);
+        
+        if (item) {
+          if (isCard) {
+            await supabase.from(table).update({ balance: Number(item.balance) + Number(tx.amount) }).eq('id', item.id);
+          } else {
+            const updatePayload = { 
+              pending_balance: Number(item.pending_balance) + Number(tx.amount),
+              remaining_installments: tx.is_full_quota ? Number(item.remaining_installments) + 1 : item.remaining_installments
+            };
+            if (tx.is_full_quota && item.payment_date) {
+              const d = new Date(item.payment_date);
+              d.setMonth(d.getMonth() - 1);
+              updatePayload.payment_date = d.toISOString().split('T')[0];
+            }
+            await supabase.from(table).update(updatePayload).eq('id', item.id);
+          }
+
+          if (tx.from_account_id && tx.from_account_id !== 'external') {
+            const acc = accounts.find(a => a.id === tx.from_account_id);
+            if (acc) {
+              await supabase.from('accounts').update({ balance: Number(acc.balance) + Number(tx.amount) }).eq('id', acc.id);
+            }
+          }
+        }
       }
-      // Lógica de reversión similar para préstamos/tarjetas...
-    } catch (e) { console.error("Error revert", e); }
+      else if (tx.type === 'transfer') {
+         const from = accounts.find(a => a.id === tx.from_account_id);
+         const to = accounts.find(a => a.id === tx.to_account_id);
+         if(from) await supabase.from('accounts').update({ balance: Number(from.balance) + Number(tx.amount) }).eq('id', from.id);
+         if(to) await supabase.from('accounts').update({ balance: Number(to.balance) - Number(tx.amount) }).eq('id', to.id);
+      }
+    } catch (e) { 
+      console.error("Error revert", e); 
+    }
 
     const { error } = await supabase.from('transactions').delete().eq('id', tx.id);
     if (!error) {
-      showToast('Movimiento eliminado');
+      showToast('Movimiento eliminado y saldo restaurado');
       fetchInitialData();
     }
   };
