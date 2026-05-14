@@ -5,10 +5,10 @@ import { formatCurrency } from './formatters';
 export const NavItem = ({ icon, label, active, onClick }) => (
   <button 
     onClick={onClick} 
-    className={`flex flex-col items-center gap-1 transition-colors ${active ? 'text-emerald-400' : 'text-slate-500 hover:text-slate-300'}`}
+    className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${active ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}
   >
-    {React.cloneElement(icon, { size: 22, strokeWidth: active ? 2.5 : 2 })}
-    <span className="text-[10px] font-medium">{label}</span>
+    {React.cloneElement(icon, { size: 20, strokeWidth: active ? 2.5 : 2 })}
+    <span className="font-medium">{label}</span>
   </button>
 );
 
