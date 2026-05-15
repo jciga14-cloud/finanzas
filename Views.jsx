@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Target, AlertCircle, Repeat, Wallet, 
-  Edit2, CreditCard, Landmark, LogOut, Car, Activity, X
+  Edit2, CreditCard, Landmark, LogOut, Car, Activity, X, Save
 } from 'lucide-react';
 import { formatCurrency } from './formatters';
 import { EmptyState, TransactionItem } from './UI';
@@ -203,7 +203,7 @@ export const SettingsView = ({ categories, subscriptions, openModal, userEmail, 
         <h3 className="font-bold text-slate-300 mb-2 flex items-center gap-2 text-sm uppercase"><Target size={18} className="text-emerald-500"/> Presupuesto Mensual</h3>
         <div className="flex gap-2">
            <input type="number" value={budget} onChange={(e)=>setBudget(e.target.value)} onBlur={saveBudget} className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 font-bold text-slate-200 outline-none focus:border-emerald-500" placeholder="0.00"/>
-           <button onClick={saveBudget} className="bg-emerald-500 text-slate-950 px-4 rounded-xl text-sm font-bold">Guardar</button>
+           <button onClick={saveBudget} className="bg-emerald-500 text-slate-950 px-2 md:px-4 rounded-xl text-xs md:text-sm font-bold">Guardar</button>
         </div>
       </div>
 
