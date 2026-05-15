@@ -2,15 +2,21 @@ import React from 'react';
 import { ArrowUpRight, ArrowRightLeft, ArrowDownRight, Trash2 } from 'lucide-react';
 import { formatCurrency } from './formatters';
 
-export const NavItem = ({ icon, label, active, onClick }) => (
-  <button 
-    onClick={onClick} 
-    className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${active ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`}
-  >
-    {React.cloneElement(icon, { size: 20, strokeWidth: active ? 2.5 : 2 })}
-    <span className="font-medium">{label}</span>
-  </button>
-);
+export const NavItem = ({ icon, label, active, onClick }) => {
+  const isFab = !label;
+  return (
+    <button 
+      onClick={onClick} 
+      className={isFab ? 
+        'w-12 h-12 rounded-2xl bg-emerald-500 text-slate-950 flex items-center justify-center shadow-2xl shadow-emerald-500/20 transition-all hover:scale-110 active:scale-95' :
+        `flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${active ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`
+      }
+    >
+      {React.cloneElement(icon, { size: isFab ? 24 : 20, strokeWidth: active ? 2.5 : 2 })}
+      {label && <span className="font-medium">{label}</span>}
+    </button>
+  );
+};
 
 export const FabOption = ({ icon, label, color, onClick }) => (
   <div className="flex items-center gap-3">
