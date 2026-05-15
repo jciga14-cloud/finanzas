@@ -62,7 +62,7 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const numAmt = Number(amount);
-    if (!numAmt && type !== 'card' && type !== 'loan') return showToast('Monto inválido', 'error');
+    if (!numAmt && !['card', 'loan', 'account'].includes(type)) return showToast('Monto inválido', 'error');
     setLoading(true);
     
     try {
