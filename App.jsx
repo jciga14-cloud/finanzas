@@ -237,13 +237,31 @@ export default function App() {
           </div>
         </div>
 
-        <nav className="flex-1 space-y-4">
+        <nav className="space-y-4">
           <NavItem icon={<Home size={20} />} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
           <NavItem icon={<Wallet size={20} />} label="Mis Cuentas" active={activeTab === 'accounts'} onClick={() => setActiveTab('accounts')} />
           <NavItem icon={<CreditCard size={20} />} label="Tarjetas" active={activeTab === 'cards'} onClick={() => setActiveTab('cards')} />
           <NavItem icon={<Landmark size={20} />} label="Préstamos" active={activeTab === 'loans'} onClick={() => setActiveTab('loans')} />
           <NavItem icon={<Settings size={20} />} label="Configuración" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
         </nav>
+
+        {/* FAB en Sidebar para Desktop */}
+        <div className="mt-4">
+          <button 
+            onClick={() => setIsFabOpen(!isFabOpen)} 
+            className={`w-12 h-12 rounded-2xl bg-emerald-500 text-slate-950 flex items-center justify-center shadow-2xl shadow-emerald-500/20 transition-all hover:scale-110 active:scale-95 ${isFabOpen ? 'rotate-45 bg-slate-800 text-emerald-500' : ''}`}
+          >
+            <Plus size={24} strokeWidth={3} />
+          </button>
+          
+          {isFabOpen && (
+            <div className="absolute bottom-16 left-0 flex flex-col items-start gap-3 pb-2 animate-fade-in-up w-max">
+              <FabOption icon={<ArrowRightLeft size={18} />} label="Transferencia" color="bg-indigo-500" onClick={() => {setModalConfig({type: 'transfer'}); setIsFabOpen(false);}} />
+              <FabOption icon={<TrendingDown size={18} />} label="Gasto" color="bg-rose-500" onClick={() => {setModalConfig({type: 'expense'}); setIsFabOpen(false);}} />
+              <FabOption icon={<TrendingUp size={18} />} label="Ingreso" color="bg-emerald-500" onClick={() => {setModalConfig({type: 'income'}); setIsFabOpen(false);}} />
+            </div>
+          )}
+        </div>
 
         <button onClick={() => supabase.auth.signOut()} className="mt-auto flex items-center gap-3 p-4 text-slate-500 hover:text-rose-400 transition-all rounded-2xl hover:bg-rose-500/10 font-semibold text-sm">
           <LogOut size={18} />
@@ -287,27 +305,20 @@ export default function App() {
         <nav className="md:hidden fixed bottom-0 w-full bg-slate-900/80 backdrop-blur-xl border-t border-slate-800 px-6 py-4 flex justify-between items-center z-40 pb-safe">
           <NavItem icon={<Home />} label="Inicio" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
           <NavItem icon={<Wallet />} label="Cuentas" active={activeTab === 'accounts'} onClick={() => setActiveTab('accounts')} />
+          <NavItem icon={<Plus />} label="" active={false} onClick={() => setIsFabOpen(!isFabOpen)} />
           <NavItem icon={<CreditCard />} label="Tarjetas" active={activeTab === 'cards'} onClick={() => setActiveTab('cards')} />
           <NavItem icon={<Landmark />} label="Préstamos" active={activeTab === 'loans'} onClick={() => setActiveTab('loans')} />
         </nav>
 
-        {/* FAB Reubicado para ser responsivo */}
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 md:bottom-12 md:right-12 md:translate-x-0 z-50">
-          <button 
-            onClick={() => setIsFabOpen(!isFabOpen)} 
-            className={`w-16 h-16 rounded-2xl bg-emerald-500 text-slate-950 flex items-center justify-center shadow-2xl shadow-emerald-500/20 transition-all hover:scale-110 active:scale-95 ${isFabOpen ? 'rotate-45 bg-slate-800 text-emerald-500' : ''}`}
-          >
-            <Plus size={32} strokeWidth={3} />
-          </button>
-          
-          {isFabOpen && (
-            <div className="absolute bottom-20 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-0 flex flex-col items-center md:items-end gap-3 pb-2 animate-fade-in-up w-max">
-              <FabOption icon={<ArrowRightLeft size={18} />} label="Transferencia" color="bg-indigo-500" onClick={() => {setModalConfig({type: 'transfer'}); setIsFabOpen(false);}} />
-              <FabOption icon={<TrendingDown size={18} />} label="Gasto" color="bg-rose-500" onClick={() => {setModalConfig({type: 'expense'}); setIsFabOpen(false);}} />
-              <FabOption icon={<TrendingUp size={18} />} label="Ingreso" color="bg-emerald-500" onClick={() => {setModalConfig({type: 'income'}); setIsFabOpen(false);}} />
-            </div>
-          )}
-        </div>
+        {isFabOpen && (
+          <div className="md:hidden fixed bottom-20 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 pb-2 animate-fade-in-up w-max z-50">
+            <FabOption icon={<ArrowRightLeft size={18} />} label="Transferencia" color="bg-indigo-500" onClick={() => {setModalConfig({type: 'transfer'}); setIsFabOpen(false);}} />
+            <FabOption icon={<TrendingDown size={18} />} label="Gasto" color="bg-rose-500" onClick={() => {setModalConfig({type: 'expense'}); setIsFabOpen(false);}} />
+            <FabOption icon={<TrendingUp size={18} />} label="Ingreso" color="bg-emerald-500" onClick={() => {setModalConfig({type: 'income'}); setIsFabOpen(false);}} />
+          </div>
+        )}
+
+
       </div>
 
       {modalConfig && (
