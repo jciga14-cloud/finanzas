@@ -19,6 +19,7 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
   const [bank, setBank] = useState('');
   const [limit, setLimit] = useState('');
   const [cutoffDate, setCutoffDate] = useState('');
+  const [toAccountId, setToAccountId] = useState('');
   const [installments, setInstallments] = useState('');
   const [accType, setAccType] = useState('Ahorro');
 
@@ -55,6 +56,9 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
         setCategory(categories.expense_categories?.[0] || 'Otros');
         setAccountId(usableAccounts.length > 0 ? usableAccounts[0].id : 'external');
       }
+      if (type === 'transfer' && usableAccounts.length > 1) {
+        setToAccountId(usableAccounts[1].id);
+      }
       if (usableAccounts.length > 0 && accountId === 'external' && ['expense', 'transfer'].includes(type)) setAccountId(usableAccounts[0].id);
     }
   }, [isEdit, relatedItem, type, categories, usableAccounts]);
@@ -62,10 +66,11 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const numAmt = Number(amount);
-    if (!numAmt && !['card', 'loan', 'account'].includes(type)) return showToast('Monto inválido', 'error');
+    if (!numAmt && !['card', 'loan', 'account', 'transfer'].includes(type)) return showToast('Monto inválido', 'error');
     setLoading(true);
     
     try {
+      let response;
       if (isEdit) {
         const table = type === 'account' ? 'accounts' : type === 'card' ? 'credit_cards' : type === 'loan' ? 'loans' : 'subscriptions';
         const payload = { name };
@@ -74,37 +79,66 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
         if (type === 'loan') { payload.pending_balance = numAmt; payload.total_amount = Number(limit); payload.remaining_installments = Number(installments); payload.payment_date = date; }
         if (type === 'subscription') { payload.amount = numAmt; payload.category = category; payload.account_id = accountId; payload.next_payment_date = date; }
         
-        await supabase.from(table).update(payload).eq('id', relatedItem.id);
+        response = await supabase.from(table).update(payload).eq('id', relatedItem.id);
       } else {
-        if (type === 'account') await supabase.from('accounts').insert([{ user_id: userId, name, balance: numAmt, type: accType }]);
-        else if (type === 'card') await supabase.from('credit_cards').insert([{ user_id: userId, name, bank, limit_amount: Number(limit), balance: numAmt, cutoff_date: cutoffDate, payment_date: date }]);
-        else if (type === 'loan') await supabase.from('loans').insert([{ user_id: userId, name, total_amount: Number(limit), pending_balance: numAmt, remaining_installments: Number(installments), payment_date: date }]);
-        else if (type === 'subscription') await supabase.from('subscriptions').insert([{ user_id: userId, name, amount: numAmt, category, account_id: accountId, next_payment_date: date }]);
+        if (type === 'account') response = await supabase.from('accounts').insert([{ user_id: userId, name, balance: numAmt, type: accType }]);
+        else if (type === 'card') response = await supabase.from('credit_cards').insert([{ user_id: userId, name, bank, limit_amount: Number(limit), balance: numAmt, cutoff_date: cutoffDate, payment_date: date }]);
+        else if (type === 'loan') response = await supabase.from('loans').insert([{ user_id: userId, name, total_amount: Number(limit), pending_balance: numAmt, remaining_installments: Number(installments), payment_date: date }]);
+        else if (type === 'subscription') response = await supabase.from('subscriptions').insert([{ user_id: userId, name, amount: numAmt, category, account_id: accountId, next_payment_date: date }]);
         else if (type === 'income' || type === 'expense') {
-          await supabase.from('transactions').insert([{ user_id: userId, type, amount: numAmt, category, date, description: name, from_account_id: accountId }]);
+          response = await supabase.from('transactions').insert([{ user_id: userId, type, amount: numAmt, category, date, description: name, from_account_id: accountId }]);
           if (accountId !== 'external') {
             const acc = accounts.find(a => a.id === accountId);
             await supabase.from('accounts').update({ balance: type === 'expense' ? Number(acc.balance) - numAmt : Number(acc.balance) + numAmt }).eq('id', accountId);
           }
         }
         else if (type === 'card_expense') {
-          await supabase.from('transactions').insert([{ user_id: userId, type: 'expense', amount: numAmt, category, date, description: `${name} (Tarjeta)`, related_id: relatedItem.id, from_account_id: 'credit_card' }]);
+          response = await supabase.from('transactions').insert([{ user_id: userId, type: 'expense', amount: numAmt, category, date, description: `${name} (Tarjeta)`, related_id: relatedItem.id, from_account_id: 'credit_card' }]);
           await supabase.from('credit_cards').update({ balance: Number(relatedItem.balance) + numAmt }).eq('id', relatedItem.id);
         }
         else if (type === 'pay_card') {
-           await supabase.from('transactions').insert([{ user_id: userId, type: 'card_payment', amount: numAmt, date, description: `Pago: ${relatedItem.name}`, related_id: relatedItem.id, from_account_id: accountId }]);
+           response = await supabase.from('transactions').insert([{ user_id: userId, type: 'card_payment', amount: numAmt, date, description: `Pago: ${relatedItem.name}`, related_id: relatedItem.id, from_account_id: accountId }]);
            await supabase.from('credit_cards').update({ balance: Math.max(0, Number(relatedItem.balance) - numAmt) }).eq('id', relatedItem.id);
            if (accountId !== 'external') {
              const acc = accounts.find(a => a.id === accountId);
              await supabase.from('accounts').update({ balance: Number(acc.balance) - numAmt }).eq('id', accountId);
            }
         }
+        else if (type === 'transfer') {
+          response = await supabase.from('transactions').insert([{ user_id: userId, type: 'transfer', amount: numAmt, date, description: name, from_account_id: accountId, to_account_id: toAccountId }]);
+          const fromAcc = accounts.find(a => a.id === accountId);
+          const toAcc = accounts.find(a => a.id === toAccountId);
+          if (fromAcc) await supabase.from('accounts').update({ balance: Number(fromAcc.balance) - numAmt }).eq('id', accountId);
+          if (toAcc) await supabase.from('accounts').update({ balance: Number(toAcc.balance) + numAmt }).eq('id', toAccountId);
+        }
+        else if (type === 'pay_loan') {
+          response = await supabase.from('transactions').insert([{ user_id: userId, type: 'loan_payment', amount: numAmt, date, description: `Pago Préstamo: ${relatedItem.name}`, related_id: relatedItem.id, from_account_id: accountId, is_full_quota: true }]);
+          await supabase.from('loans').update({ 
+            pending_balance: Math.max(0, Number(relatedItem.pending_balance) - numAmt),
+            remaining_installments: Math.max(0, Number(relatedItem.remaining_installments) - 1)
+          }).eq('id', relatedItem.id);
+          if (accountId !== 'external') {
+            const acc = accounts.find(a => a.id === accountId);
+            await supabase.from('accounts').update({ balance: Number(acc.balance) - numAmt }).eq('id', accountId);
+          }
+        }
+        else if (type === 'pay_subscription') {
+          response = await supabase.from('transactions').insert([{ user_id: userId, type: 'expense', amount: numAmt, category: relatedItem.category, date, description: `Suscripción: ${relatedItem.name}`, related_id: relatedItem.id, from_account_id: accountId }]);
+          if (accountId !== 'external') {
+            const acc = accounts.find(a => a.id === accountId);
+            await supabase.from('accounts').update({ balance: Number(acc.balance) - numAmt }).eq('id', accountId);
+          }
+          const nextDate = new Date(relatedItem.next_payment_date);
+          nextDate.setMonth(nextDate.getMonth() + 1);
+          await supabase.from('subscriptions').update({ next_payment_date: nextDate.toISOString().split('T')[0] }).eq('id', relatedItem.id);
+        }
       }
+      if (response?.error) throw response.error;
       refresh();
       onClose();
     } catch (err) { 
       console.error(err); 
-      showToast('Error al guardar', 'error'); 
+      showToast(err.message || 'Error al guardar', 'error'); 
     } finally { 
       setLoading(false); 
     }
@@ -136,20 +170,27 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
             </div>
           )}
 
-          {type === 'card' && (
+          {(type === 'card' || type === 'loan') && (
             <div className="grid grid-cols-2 gap-3">
                <div>
-                 <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Límite Total</label>
+                 <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">{type === 'card' ? 'Límite Total' : 'Monto Total'}</label>
                  <input type="number" required value={limit} onChange={(e)=>setLimit(e.target.value)} onBlur={(e)=>handleBlurFormatting(e.target.value, setLimit)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none" placeholder="0.00"/>
                </div>
+               {type === 'card' ? (
                <div>
                  <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Deuda Actual</label>
                  <input type="number" required value={amount} onChange={(e)=>setAmount(e.target.value)} onBlur={(e)=>handleBlurFormatting(e.target.value, setAmount)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none" placeholder="0.00"/>
                </div>
+               ) : (
+               <div>
+                 <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Cuotas Rest.</label>
+                 <input type="number" required value={installments} onChange={(e)=>setInstallments(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none" placeholder="0"/>
+               </div>
+               )}
             </div>
           )}
 
-          {['expense', 'income', 'card_expense', 'pay_card', 'account', 'subscription'].includes(type) && (
+          {['expense', 'income', 'card_expense', 'pay_card', 'account', 'subscription', 'transfer', 'pay_loan', 'pay_subscription', 'loan'].includes(type) && (
           <div>
             <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">{type === 'account' ? 'Saldo Inicial ($)' : 'Monto ($)'}</label>
             <input 
@@ -177,23 +218,27 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
             />
           </div>
 
-          {type === 'account' && (
+          {(type === 'account' || type === 'loan') && (
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Tipo</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">{type === 'account' ? 'Tipo' : 'Fecha de Pago'}</label>
+              {type === 'account' ? (
               <select value={accType} onChange={(e)=>setAccType(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none">
                 <option>Ahorro</option>
                 <option>Corriente</option>
                 <option>Efectivo</option>
                 <option value="Activo Fijo">Activo Fijo</option>
               </select>
+              ) : (
+                <input type="date" required value={date} onChange={(e)=>setDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none"/>
+              )}
             </div>
           )}
 
-          {type === 'subscription' && (
+          {['subscription', 'expense', 'income'].includes(type) && (
             <div>
               <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Categoría</label>
               <select value={category} onChange={(e)=>setCategory(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none">
-                {categories.expense_categories?.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                {(type === 'income' ? categories.income_categories : categories.expense_categories)?.map(cat => <option key={cat} value={cat}>{cat}</option>)}
               </select>
             </div>
           )}
@@ -216,6 +261,21 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
             <div>
               <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Próxima Fecha de Pago</label>
               <input type="date" required value={date} onChange={(e)=>setDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none"/>
+            </div>
+          )}
+
+          {type === 'transfer' && (
+            <div>
+              <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Cuenta de destino</label>
+              <select 
+                required
+                value={toAccountId} 
+                onChange={(e)=>setToAccountId(e.target.value)} 
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none"
+              >
+                <option value="">Seleccionar destino</option>
+                {usableAccounts.map(a => a.id !== accountId && <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
             </div>
           )}
 

@@ -54,7 +54,6 @@ export default function App() {
     // });
 
     // return () => authListener.subscription.unsubscribe();
-    fetchInitialData();
   }, []);
 
   useEffect(() => {
