@@ -303,11 +303,11 @@ export default function App() {
 
         {/* Navegación Inferior Móvil (Oculta en desktop) */}
         <nav className="md:hidden fixed bottom-0 w-full bg-slate-900/80 backdrop-blur-xl border-t border-slate-800 px-6 py-4 flex justify-between items-center z-40 pb-safe">
-          <NavItem icon={<Home />} label="Inicio" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
-          <NavItem icon={<Wallet />} label="Cuentas" active={activeTab === 'accounts'} onClick={() => setActiveTab('accounts')} />
-          <NavItem icon={<Plus />} label="" active={false} onClick={() => setIsFabOpen(!isFabOpen)} />
-          <NavItem icon={<CreditCard />} label="Tarjetas" active={activeTab === 'cards'} onClick={() => setActiveTab('cards')} />
-          <NavItem icon={<Landmark />} label="Préstamos" active={activeTab === 'loans'} onClick={() => setActiveTab('loans')} />
+          <NavItem icon={<Home />} label="Inicio" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} layout='col' />
+          <NavItem icon={<Wallet />} label="Cuentas" active={activeTab === 'accounts'} onClick={() => setActiveTab('accounts')} layout='col' />
+          <NavItem icon={<Plus />} label="" active={false} onClick={() => setIsFabOpen(!isFabOpen)} layout='col' />
+          <NavItem icon={<CreditCard />} label="Tarjetas" active={activeTab === 'cards'} onClick={() => setActiveTab('cards')} layout='col' />
+          <NavItem icon={<Landmark />} label="Préstamos" active={activeTab === 'loans'} onClick={() => setActiveTab('loans')} layout='col' />
         </nav>
 
         {isFabOpen && (
