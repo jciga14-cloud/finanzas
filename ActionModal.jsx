@@ -7,6 +7,8 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
   const { type, isEdit, relatedItem } = config;
   const usableAccounts = accounts.filter(a => a.type !== 'Activo Fijo');
 
+  const panamaBanks = ['Banco General', 'BAC', 'Banesco', 'Banistmo', 'Banco Nacional', 'Banco Panamá', 'Banco Azteca', 'Multibank', 'Capital Bank', 'Banco Delta'];
+
   const [amount, setAmount] = useState('');
   const [name, setName] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -23,7 +25,7 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
   const titles = { 
     expense: 'Gasto de Cuenta', income: 'Nuevo Ingreso', card: 'Nueva Tarjeta', loan: 'Nuevo Préstamo', account: 'Nueva Cuenta/Activo',
     card_expense: 'Gasto en Tarjeta', pay_card: 'Pagar Tarjeta', pay_loan: 'Pagar Préstamo', transfer: 'Transferencia',
-    subscription: 'Recibo Fijo', pay_subscription: 'Pagar Recibo'
+    subscription: 'Nueva Suscripción', pay_subscription: 'Pagar Suscripción'
   };
 
   useEffect(() => {
@@ -42,8 +44,17 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
         setInstallments(relatedItem.remaining_installments || ''); 
         setDate(relatedItem.payment_date || ''); 
       }
+      if (type === 'subscription') {
+        setCategory(relatedItem.category || categories.expense_categories?.[0] || 'Otros');
+        setAccountId(relatedItem.account_id || usableAccounts[0]?.id || 'external');
+        setDate(relatedItem.next_payment_date || '');
+      }
     } else {
       if (type === 'income') setCategory(categories.income_categories?.[0] || 'Ingreso');
+      if (type === 'subscription') {
+        setCategory(categories.expense_categories?.[0] || 'Otros');
+        setAccountId(usableAccounts.length > 0 ? usableAccounts[0].id : 'external');
+      }
       if (usableAccounts.length > 0 && accountId === 'external' && ['expense', 'transfer'].includes(type)) setAccountId(usableAccounts[0].id);
     }
   }, [isEdit, relatedItem, type, categories, usableAccounts]);
@@ -51,7 +62,7 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const numAmt = Number(amount);
-    if (!numAmt && type !== 'card' && type !== 'loan') return showToast('Monto inválido', 'error');
+    if (!numAmt && !['card', 'loan', 'account'].includes(type)) return showToast('Monto inválido', 'error');
     setLoading(true);
     
     try {
@@ -61,24 +72,27 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
         if (type === 'account') { payload.balance = numAmt; payload.type = accType; }
         if (type === 'card') { payload.balance = numAmt; payload.bank = bank; payload.limit_amount = Number(limit); payload.cutoff_date = cutoffDate; payload.payment_date = date; }
         if (type === 'loan') { payload.pending_balance = numAmt; payload.total_amount = Number(limit); payload.remaining_installments = Number(installments); payload.payment_date = date; }
+        if (type === 'subscription') { payload.amount = numAmt; payload.category = category; payload.account_id = accountId; payload.next_payment_date = date; }
         
         await supabase.from(table).update(payload).eq('id', relatedItem.id);
       } else {
-        if (type === 'account') await supabase.from('accounts').insert([{ name, balance: numAmt, type: accType }]);
-        else if (type === 'card') await supabase.from('credit_cards').insert([{ name, bank, limit_amount: Number(limit), balance: numAmt, cutoff_date: cutoffDate, payment_date: date }]);
+        if (type === 'account') await supabase.from('accounts').insert([{ user_id: userId, name, balance: numAmt, type: accType }]);
+        else if (type === 'card') await supabase.from('credit_cards').insert([{ user_id: userId, name, bank, limit_amount: Number(limit), balance: numAmt, cutoff_date: cutoffDate, payment_date: date }]);
+        else if (type === 'loan') await supabase.from('loans').insert([{ user_id: userId, name, total_amount: Number(limit), pending_balance: numAmt, remaining_installments: Number(installments), payment_date: date }]);
+        else if (type === 'subscription') await supabase.from('subscriptions').insert([{ user_id: userId, name, amount: numAmt, category, account_id: accountId, next_payment_date: date }]);
         else if (type === 'income' || type === 'expense') {
-          await supabase.from('transactions').insert([{ type, amount: numAmt, category, date, description: name, from_account_id: accountId }]);
+          await supabase.from('transactions').insert([{ user_id: userId, type, amount: numAmt, category, date, description: name, from_account_id: accountId }]);
           if (accountId !== 'external') {
             const acc = accounts.find(a => a.id === accountId);
             await supabase.from('accounts').update({ balance: type === 'expense' ? Number(acc.balance) - numAmt : Number(acc.balance) + numAmt }).eq('id', accountId);
           }
         }
         else if (type === 'card_expense') {
-          await supabase.from('transactions').insert([{ type: 'expense', amount: numAmt, category, date, description: `${name} (Tarjeta)`, related_id: relatedItem.id, from_account_id: 'credit_card' }]);
+          await supabase.from('transactions').insert([{ user_id: userId, type: 'expense', amount: numAmt, category, date, description: `${name} (Tarjeta)`, related_id: relatedItem.id, from_account_id: 'credit_card' }]);
           await supabase.from('credit_cards').update({ balance: Number(relatedItem.balance) + numAmt }).eq('id', relatedItem.id);
         }
         else if (type === 'pay_card') {
-           await supabase.from('transactions').insert([{ type: 'card_payment', amount: numAmt, date, description: `Pago: ${relatedItem.name}`, related_id: relatedItem.id, from_account_id: accountId }]);
+           await supabase.from('transactions').insert([{ user_id: userId, type: 'card_payment', amount: numAmt, date, description: `Pago: ${relatedItem.name}`, related_id: relatedItem.id, from_account_id: accountId }]);
            await supabase.from('credit_cards').update({ balance: Math.max(0, Number(relatedItem.balance) - numAmt) }).eq('id', relatedItem.id);
            if (accountId !== 'external') {
              const acc = accounts.find(a => a.id === accountId);
@@ -115,7 +129,10 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
           {type === 'card' && (
             <div>
               <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Banco</label>
-              <input type="text" required value={bank} onChange={(e)=>setBank(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none" placeholder="Ej. Banco General"/>
+              <select required value={bank} onChange={(e)=>setBank(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none">
+                <option value="">Seleccionar Banco</option>
+                {panamaBanks.map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
             </div>
           )}
 
@@ -126,13 +143,13 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
                  <input type="number" required value={limit} onChange={(e)=>setLimit(e.target.value)} onBlur={(e)=>handleBlurFormatting(e.target.value, setLimit)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none" placeholder="0.00"/>
                </div>
                <div>
-                 <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Deuda Inicial</label>
+                 <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Deuda Actual</label>
                  <input type="number" required value={amount} onChange={(e)=>setAmount(e.target.value)} onBlur={(e)=>handleBlurFormatting(e.target.value, setAmount)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none" placeholder="0.00"/>
                </div>
             </div>
           )}
 
-          {['expense', 'income', 'card_expense', 'pay_card', 'account'].includes(type) && (
+          {['expense', 'income', 'card_expense', 'pay_card', 'account', 'subscription'].includes(type) && (
           <div>
             <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">{type === 'account' ? 'Saldo Inicial ($)' : 'Monto ($)'}</label>
             <input 
@@ -169,6 +186,36 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
                 <option>Efectivo</option>
                 <option value="Activo Fijo">Activo Fijo</option>
               </select>
+            </div>
+          )}
+
+          {type === 'subscription' && (
+            <div>
+              <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Categoría</label>
+              <select value={category} onChange={(e)=>setCategory(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none">
+                {categories.expense_categories?.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+              </select>
+            </div>
+          )}
+
+          {type === 'subscription' && (
+            <div>
+              <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Cuenta de origen</label>
+              <select 
+                value={accountId} 
+                onChange={(e)=>setAccountId(e.target.value)} 
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none"
+              >
+                {usableAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                <option value="external">Efectivo Externo</option>
+              </select>
+            </div>
+          )}
+
+          {type === 'subscription' && (
+            <div>
+              <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Próxima Fecha de Pago</label>
+              <input type="date" required value={date} onChange={(e)=>setDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none"/>
             </div>
           )}
 

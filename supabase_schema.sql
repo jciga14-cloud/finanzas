@@ -75,4 +75,19 @@ ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
 
 -- 3. Crear Políticas (Ejemplo para accounts, repetir para las demás)
 CREATE POLICY "Users can manage their own accounts" ON accounts 
-  FOR ALL USING (auth.uid() = user_id);
+  FOR ALL USING (auth.uid() = user_id OR user_id = '00000000-0000-0000-0000-000000000000');
+
+CREATE POLICY "Users can manage their own transactions" ON transactions 
+  FOR ALL USING (auth.uid() = user_id OR user_id = '00000000-0000-0000-0000-000000000000');
+
+CREATE POLICY "Users can manage their own credit_cards" ON credit_cards 
+  FOR ALL USING (auth.uid() = user_id OR user_id = '00000000-0000-0000-0000-000000000000');
+
+CREATE POLICY "Users can manage their own loans" ON loans 
+  FOR ALL USING (auth.uid() = user_id OR user_id = '00000000-0000-0000-0000-000000000000');
+
+CREATE POLICY "Users can manage their own subscriptions" ON subscriptions 
+  FOR ALL USING (auth.uid() = user_id OR user_id = '00000000-0000-0000-0000-000000000000');
+
+CREATE POLICY "Users can manage their own user_preferences" ON user_preferences 
+  FOR ALL USING (auth.uid() = user_id OR user_id = '00000000-0000-0000-0000-000000000000');
