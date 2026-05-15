@@ -1,5 +1,5 @@
 -- 1. Crear tablas
-CREATE TABLE accounts (
+CREATE TABLE IF NOT EXISTS accounts (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id uuid REFERENCES auth.users NOT NULL DEFAULT auth.uid(),
   name TEXT NOT NULL,
@@ -8,7 +8,7 @@ CREATE TABLE accounts (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE transactions (
+CREATE TABLE IF NOT EXISTS transactions (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id uuid REFERENCES auth.users NOT NULL DEFAULT auth.uid(),
   amount DECIMAL(12,2) NOT NULL,
@@ -23,7 +23,7 @@ CREATE TABLE transactions (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE credit_cards (
+CREATE TABLE IF NOT EXISTS credit_cards (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id uuid REFERENCES auth.users NOT NULL DEFAULT auth.uid(),
   name TEXT NOT NULL,
@@ -35,7 +35,7 @@ CREATE TABLE credit_cards (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE loans (
+CREATE TABLE IF NOT EXISTS loans (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id uuid REFERENCES auth.users NOT NULL DEFAULT auth.uid(),
   name TEXT NOT NULL,
@@ -47,7 +47,7 @@ CREATE TABLE loans (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE subscriptions (
+CREATE TABLE IF NOT EXISTS subscriptions (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id uuid REFERENCES auth.users NOT NULL DEFAULT auth.uid(),
   name TEXT NOT NULL,
@@ -58,7 +58,7 @@ CREATE TABLE subscriptions (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TABLE user_preferences (
+CREATE TABLE IF NOT EXISTS user_preferences (
   user_id uuid REFERENCES auth.users PRIMARY KEY DEFAULT auth.uid(),
   monthly_budget DECIMAL(12,2) DEFAULT 1000,
   income_categories TEXT[] DEFAULT ARRAY['💰 Salario', '💼 Negocio', '📈 Inversiones', '🎁 Otros'],
@@ -74,20 +74,26 @@ ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
 
 -- 3. Crear Políticas (Ejemplo para accounts, repetir para las demás)
+DROP POLICY IF EXISTS "Users can manage their own accounts" ON accounts;
 CREATE POLICY "Users can manage their own accounts" ON accounts 
   FOR ALL USING (auth.uid() = user_id OR user_id = '00000000-0000-0000-0000-000000000000');
 
+DROP POLICY IF EXISTS "Users can manage their own transactions" ON transactions;
 CREATE POLICY "Users can manage their own transactions" ON transactions 
   FOR ALL USING (auth.uid() = user_id OR user_id = '00000000-0000-0000-0000-000000000000');
 
+DROP POLICY IF EXISTS "Users can manage their own credit_cards" ON credit_cards;
 CREATE POLICY "Users can manage their own credit_cards" ON credit_cards 
   FOR ALL USING (auth.uid() = user_id OR user_id = '00000000-0000-0000-0000-000000000000');
 
+DROP POLICY IF EXISTS "Users can manage their own loans" ON loans;
 CREATE POLICY "Users can manage their own loans" ON loans 
   FOR ALL USING (auth.uid() = user_id OR user_id = '00000000-0000-0000-0000-000000000000');
 
+DROP POLICY IF EXISTS "Users can manage their own subscriptions" ON subscriptions;
 CREATE POLICY "Users can manage their own subscriptions" ON subscriptions 
   FOR ALL USING (auth.uid() = user_id OR user_id = '00000000-0000-0000-0000-000000000000');
 
+DROP POLICY IF EXISTS "Users can manage their own user_preferences" ON user_preferences;
 CREATE POLICY "Users can manage their own user_preferences" ON user_preferences 
   FOR ALL USING (auth.uid() = user_id OR user_id = '00000000-0000-0000-0000-000000000000');
