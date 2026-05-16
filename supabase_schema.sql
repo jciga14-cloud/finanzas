@@ -1,7 +1,7 @@
 -- 1. Crear tablas
 CREATE TABLE IF NOT EXISTS accounts (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id uuid REFERENCES auth.users NOT NULL DEFAULT auth.uid(),
+  user_id uuid NOT NULL DEFAULT auth.uid(),
   name TEXT NOT NULL,
   type TEXT NOT NULL,
   balance DECIMAL(12,2) DEFAULT 0,
@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS accounts (
 
 CREATE TABLE IF NOT EXISTS transactions (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id uuid REFERENCES auth.users NOT NULL DEFAULT auth.uid(),
+  user_id uuid NOT NULL DEFAULT auth.uid(),
   amount DECIMAL(12,2) NOT NULL,
   type TEXT NOT NULL, -- 'income', 'expense', 'transfer', 'card_payment', 'loan_payment'
   category TEXT,
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS transactions (
 
 CREATE TABLE IF NOT EXISTS credit_cards (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id uuid REFERENCES auth.users NOT NULL DEFAULT auth.uid(),
+  user_id uuid NOT NULL DEFAULT auth.uid(),
   name TEXT NOT NULL,
   bank TEXT,
   limit_amount DECIMAL(12,2) NOT NULL,
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS credit_cards (
 
 CREATE TABLE IF NOT EXISTS loans (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id uuid REFERENCES auth.users NOT NULL DEFAULT auth.uid(),
+  user_id uuid NOT NULL DEFAULT auth.uid(),
   name TEXT NOT NULL,
   total_amount DECIMAL(12,2) NOT NULL,
   pending_balance DECIMAL(12,2) NOT NULL,
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS loans (
 
 CREATE TABLE IF NOT EXISTS subscriptions (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id uuid REFERENCES auth.users NOT NULL DEFAULT auth.uid(),
+  user_id uuid NOT NULL DEFAULT auth.uid(),
   name TEXT NOT NULL,
   amount DECIMAL(12,2) NOT NULL,
   category TEXT,

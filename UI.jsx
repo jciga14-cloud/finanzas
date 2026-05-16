@@ -6,13 +6,14 @@ export const NavItem = ({ icon, label, active, onClick, layout = 'row' }) => {
   const isFab = !label;
   const isCol = layout === 'col';
   return (
-    <button 
-      onClick={onClick} 
-      className={isFab ? 
-        'w-12 h-12 rounded-2xl bg-emerald-500 text-slate-950 flex items-center justify-center shadow-2xl shadow-emerald-500/20 transition-all hover:scale-110 active:scale-95' :
-        isCol ?
-          `flex flex-col items-center gap-1 transition-colors ${active ? 'text-emerald-400' : 'text-slate-500 hover:text-slate-300'}` :
-          `flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${active ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'}`
+    <button
+      onClick={onClick}
+      className={
+        isFab
+          ? 'w-12 h-12 rounded-[16px] bg-[#4F46E5] text-white flex items-center justify-center shadow-[0_12px_30px_-18px_rgba(79,70,229,0.55)] transition-transform hover:scale-105 active:scale-95'
+          : isCol
+            ? `flex flex-col items-center gap-1 text-center transition ${active ? 'text-[#4F46E5]' : 'text-slate-500 hover:text-slate-700'}`
+            : `flex items-center gap-3 rounded-[18px] px-4 py-3 transition-all ${active ? 'bg-[#EFF6FF] text-[#1E293B] border border-[#DBEAFE]' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'}`
       }
     >
       {React.cloneElement(icon, { size: isFab ? 24 : 20, strokeWidth: active ? 2.5 : 2 })}
@@ -23,39 +24,47 @@ export const NavItem = ({ icon, label, active, onClick, layout = 'row' }) => {
 
 export const FabOption = ({ icon, label, color, onClick }) => (
   <div className="flex items-center gap-3">
-    <span className="bg-slate-800 border border-slate-700 text-slate-300 text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg">{label}</span>
-    <button onClick={onClick} className={`w-10 h-10 rounded-full ${color} text-white shadow-lg flex items-center justify-center transform hover:scale-110 transition`}>{icon}</button>
+    <span className="rounded-[14px] bg-white border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 shadow-sm">
+      {label}
+    </span>
+    <button onClick={onClick} className={`w-10 h-10 rounded-full ${color} text-white shadow-[0_12px_30px_-18px_rgba(15,23,42,0.35)] flex items-center justify-center transition-transform hover:scale-105`}>
+      {icon}
+    </button>
   </div>
 );
 
 export const EmptyState = ({ icon, title, desc }) => (
-  <div className="flex flex-col items-center justify-center py-12 text-center opacity-50">
-    <div className="mb-4">{React.cloneElement(icon, { size: 48 })}</div>
-    <h3 className="font-bold text-slate-300">{title}</h3>
-    <p className="text-xs text-slate-500">{desc}</p>
+  <div className="flex flex-col items-center justify-center rounded-[24px] bg-white border border-slate-200 p-10 text-center shadow-sm">
+    <div className="mb-4">{React.cloneElement(icon, { size: 48, className: 'text-[#4F46E5]' })}</div>
+    <h3 className="font-semibold text-lg text-[#0F172A]">{title}</h3>
+    <p className="mt-2 text-sm text-slate-500">{desc}</p>
   </div>
 );
 
 export const TransactionItem = ({ tx, onDelete }) => {
   const isInc = tx.type === 'income';
   const isTrans = tx.type === 'transfer';
+  const highlightClass = isInc
+    ? 'bg-[#ECFDF5] text-[#0F766E]'
+    : isTrans
+      ? 'bg-[#DBEAFE] text-[#0F172A]'
+      : 'bg-[#FFF1F2] text-[#981B3A]';
+
   return (
-    <div className="flex justify-between items-center border-b border-slate-800/50 py-3 last:border-0 group">
-      <div className="flex items-center gap-3">
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isInc ? 'bg-emerald-500/20 text-emerald-400' : isTrans ? 'bg-indigo-500/20 text-indigo-400' : 'bg-rose-500/20 text-rose-400'}`}>
-          {isInc ? <ArrowUpRight size={16}/> : isTrans ? <ArrowRightLeft size={16}/> : <ArrowDownRight size={16}/>}
+    <div className="rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm sm:flex sm:items-center sm:justify-between">
+      <div className="flex items-start gap-3">
+        <div className={`flex h-10 w-10 items-center justify-center rounded-[16px] ${highlightClass}`}>
+          {isInc ? <ArrowUpRight size={16} /> : isTrans ? <ArrowRightLeft size={16} /> : <ArrowDownRight size={16} />}
         </div>
         <div>
-          <p className="font-semibold text-sm text-slate-200">{tx.description}</p>
-          <p className="text-[10px] text-slate-500">{tx.date} • {tx.category || 'Movimiento'}</p>
+          <p className="font-semibold text-sm text-[#0F172A]">{tx.description}</p>
+          <p className="mt-1 text-xs text-slate-500">{tx.date} • {tx.category || 'Movimiento'}</p>
         </div>
       </div>
-      <div className="flex items-center gap-3">
-        <p className={`font-bold text-sm ${isInc ? 'text-emerald-400' : isTrans ? 'text-indigo-400' : 'text-slate-300'}`}>
-          {isInc ? '+' : isTrans ? '' : '-'}{formatCurrency(tx.amount)}
-        </p>
-        <button onClick={() => onDelete(tx)} className="text-slate-600 hover:text-rose-500 transition p-1 bg-slate-900 rounded-full border border-slate-800">
-          <Trash2 size={12}/>
+      <div className="mt-3 flex items-center gap-3 sm:mt-0">
+        <p className={`font-semibold text-sm ${isInc ? 'text-[#0F766E]' : isTrans ? 'text-[#0F172A]' : 'text-[#981B3A]'}`}>{isInc ? '+' : isTrans ? '' : '-'}{formatCurrency(tx.amount)}</p>
+        <button onClick={() => onDelete(tx)} className="rounded-full border border-slate-200 bg-slate-50 p-2 text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-500">
+          <Trash2 size={14} />
         </button>
       </div>
     </div>
