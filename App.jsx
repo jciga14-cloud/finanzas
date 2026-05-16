@@ -272,11 +272,14 @@ export default function App() {
           </button>
 
           {isFabOpen && (
-            <div className={`absolute bottom-20 left-6 flex flex-col items-start gap-3 rounded-[24px] p-4 shadow-[0_20px_50px_-30px_rgba(15,23,42,0.14)] ${darkMode ? 'bg-slate-950 border border-slate-800' : 'bg-white border border-slate-200'}`}>
-              <FabOption icon={<ArrowRightLeft size={18} />} label="Transferencia" color="bg-[#4F46E5]" darkMode={darkMode} onClick={() => { setModalConfig({ type: 'transfer' }); setIsFabOpen(false); }} />
-              <FabOption icon={<TrendingDown size={18} />} label="Gasto" color="bg-[#F97316]" darkMode={darkMode} onClick={() => { setModalConfig({ type: 'expense' }); setIsFabOpen(false); }} />
-              <FabOption icon={<TrendingUp size={18} />} label="Ingreso" color="bg-[#0D9488]" darkMode={darkMode} onClick={() => { setModalConfig({ type: 'income' }); setIsFabOpen(false); }} />
-            </div>
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setIsFabOpen(false)} />
+              <div className={`absolute bottom-20 left-6 z-40 flex flex-col items-start gap-3 rounded-[24px] p-4 shadow-[0_20px_50px_-30px_rgba(15,23,42,0.14)] ${darkMode ? 'bg-slate-950 border border-slate-800' : 'bg-white border border-slate-200'}`}>
+                <FabOption icon={<ArrowRightLeft size={18} />} label="Transferencia" color="bg-[#4F46E5]" darkMode={darkMode} onClick={() => { setModalConfig({ type: 'transfer' }); setIsFabOpen(false); }} />
+                <FabOption icon={<TrendingDown size={18} />} label="Gasto" color="bg-[#F97316]" darkMode={darkMode} onClick={() => { setModalConfig({ type: 'expense' }); setIsFabOpen(false); }} />
+                <FabOption icon={<TrendingUp size={18} />} label="Ingreso" color="bg-[#0D9488]" darkMode={darkMode} onClick={() => { setModalConfig({ type: 'income' }); setIsFabOpen(false); }} />
+              </div>
+            </>
           )}
         </div>
 
@@ -328,11 +331,14 @@ export default function App() {
         </nav>
 
         {isFabOpen && (
-          <div className={`md:hidden fixed bottom-20 left-1/2 z-50 flex w-max -translate-x-1/2 flex-col items-center gap-3 rounded-[24px] p-4 shadow-[0_20px_50px_-30px_rgba(15,23,42,0.14)] ${darkMode ? 'bg-black border-slate-800' : 'bg-white border border-slate-200'}`}>
-            <FabOption icon={<ArrowRightLeft size={18} />} label="Transferencia" color="bg-[#4F46E5]" darkMode={darkMode} onClick={() => { setModalConfig({ type: 'transfer' }); setIsFabOpen(false); }} />
-            <FabOption icon={<TrendingDown size={18} />} label="Gasto" color="bg-[#F97316]" darkMode={darkMode} onClick={() => { setModalConfig({ type: 'expense' }); setIsFabOpen(false); }} />
-            <FabOption icon={<TrendingUp size={18} />} label="Ingreso" color="bg-[#0D9488]" darkMode={darkMode} onClick={() => { setModalConfig({ type: 'income' }); setIsFabOpen(false); }} />
-          </div>
+          <>
+            <div className="md:hidden fixed inset-0 z-40" onClick={() => setIsFabOpen(false)} />
+            <div className={`md:hidden fixed bottom-20 left-1/2 z-50 flex w-max -translate-x-1/2 flex-col items-center gap-3 rounded-[24px] p-4 shadow-[0_20px_50px_-30px_rgba(15,23,42,0.14)] ${darkMode ? 'bg-black border-slate-800' : 'bg-white border border-slate-200'}`}>
+              <FabOption icon={<ArrowRightLeft size={18} />} label="Transferencia" color="bg-[#4F46E5]" darkMode={darkMode} onClick={() => { setModalConfig({ type: 'transfer' }); setIsFabOpen(false); }} />
+              <FabOption icon={<TrendingDown size={18} />} label="Gasto" color="bg-[#F97316]" darkMode={darkMode} onClick={() => { setModalConfig({ type: 'expense' }); setIsFabOpen(false); }} />
+              <FabOption icon={<TrendingUp size={18} />} label="Ingreso" color="bg-[#0D9488]" darkMode={darkMode} onClick={() => { setModalConfig({ type: 'income' }); setIsFabOpen(false); }} />
+            </div>
+          </>
         )}
 
 
