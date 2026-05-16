@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { formatInputValue, handleBlurFormatting } from './App';
 
-export const ActionModal = ({ config, onClose, userId, categories, creditCards, accounts, deleteEntity, showToast, refresh }) => {
+export const ActionModal = ({ config, onClose, userId, categories, creditCards, accounts, deleteEntity, showToast, refresh, darkMode }) => {
   const [loading, setLoading] = useState(false);
   const { type, isEdit, relatedItem } = config;
   const usableAccounts = accounts.filter(a => a.type !== 'Activo Fijo');
@@ -28,6 +28,14 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
     card_expense: 'Gasto en Tarjeta', pay_card: 'Pagar Tarjeta', pay_loan: 'Pagar Préstamo', transfer: 'Transferencia',
     subscription: 'Nueva Suscripción', pay_subscription: 'Pagar Suscripción'
   };
+
+  const inputTheme = darkMode ? 'bg-slate-800 border-slate-700 text-slate-100 placeholder:text-slate-400' : 'bg-[#F8FAFC] border-slate-200 text-[#0F172A]';
+  const focusBorder = darkMode ? 'focus:border-slate-500' : 'focus:border-[#4F46E5]';
+  const labelTheme = darkMode ? 'text-slate-300' : 'text-slate-500';
+  const cardTheme = darkMode ? 'bg-black border-slate-800 text-slate-100' : 'bg-white border border-slate-200 text-[#0F172A]';
+  const surfaceTheme = darkMode ? 'bg-slate-800 border-slate-800 text-slate-100' : 'bg-white border border-slate-200 text-[#0F172A]';
+  const dangerButtonTheme = darkMode ? 'border-slate-700 bg-slate-800 text-slate-100 hover:bg-slate-700' : 'border border-[#FECACA] bg-[#FEF2F2] text-[#BE123C] hover:bg-[#FEE2E2]';
+  const submitButtonTheme = darkMode ? 'bg-slate-700 text-slate-100 hover:bg-slate-600' : 'bg-[#4F46E5] text-white hover:bg-[#4338CA]';
 
   useEffect(() => {
     if (isEdit && relatedItem) {
@@ -145,15 +153,15 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
   };
 
   return (
-    <div className="absolute inset-0 bg-[#E0F2FE]/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
-      <div className="bg-white border border-slate-200 w-full max-w-md rounded-[28px] p-6 shadow-[0_25px_80px_-40px_rgba(15,23,42,0.18)] relative animate-slide-up max-h-[90vh] overflow-y-auto">
-        <button onClick={onClose} className="absolute top-4 right-4 rounded-full p-2 text-slate-500 transition hover:bg-[#EFF6FF] hover:text-[#0F172A]">✕</button>
-        <h2 className="font-bold text-xl text-[#0F172A] mb-6 flex justify-between items-center">
+    <div className={`absolute inset-0 ${darkMode ? 'bg-black/80' : 'bg-[#E0F2FE]/80'} backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4`}>
+      <div className={`w-full max-w-md rounded-[28px] p-6 shadow-[0_25px_80px_-40px_rgba(15,23,42,0.18)] relative animate-slide-up max-h-[90vh] overflow-y-auto ${cardTheme}`}>
+        <button onClick={onClose} className={`absolute top-4 right-4 rounded-full p-2 transition ${darkMode ? 'text-slate-300 hover:bg-slate-800 hover:text-slate-100' : 'text-slate-500 hover:bg-[#EFF6FF] hover:text-[#0F172A]'}`}>✕</button>
+        <h2 className="font-bold text-xl mb-6 flex justify-between items-center text-current">
           {isEdit ? 'Editar' : (titles[type] || 'Nuevo registro')}
           {isEdit && (
             <button 
               onClick={() => deleteEntity(type === 'account' ? 'accounts' : type === 'card' ? 'credit_cards' : type === 'loan' ? 'loans' : 'subscriptions', relatedItem.id)} 
-              className="rounded-full border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#BE123C] transition hover:bg-[#FEE2E2]"
+              className={`rounded-full px-3 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition ${dangerButtonTheme}`}
             >
               Borrar
             </button>
@@ -162,8 +170,8 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
         <form onSubmit={handleSubmit} className="space-y-4">
           {type === 'card' && (
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Banco</label>
-              <select required value={bank} onChange={(e)=>setBank(e.target.value)} className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]">
+              <label className={`text-[10px] font-bold uppercase mb-2 block tracking-widest ${labelTheme}`}>Banco</label>
+              <select required value={bank} onChange={(e)=>setBank(e.target.value)} className={`w-full rounded-[18px] px-4 py-3 text-sm outline-none transition ${focusBorder} ${inputTheme}`}>
                 <option value="">Seleccionar Banco</option>
                 {panamaBanks.map(b => <option key={b} value={b}>{b}</option>)}
               </select>
@@ -173,18 +181,18 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
           {(type === 'card' || type === 'loan') && (
             <div className="grid grid-cols-2 gap-3">
                <div>
-                 <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">{type === 'card' ? 'Límite Total' : 'Monto Total'}</label>
-                 <input type="number" required value={limit} onChange={(e)=>setLimit(e.target.value)} onBlur={(e)=>handleBlurFormatting(e.target.value, setLimit)} className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]" placeholder="0.00"/>
+                 <label className={`text-[10px] font-bold uppercase mb-2 block tracking-widest ${labelTheme}`}>{type === 'card' ? 'Límite Total' : 'Monto Total'}</label>
+                 <input type="number" required value={limit} onChange={(e)=>setLimit(e.target.value)} onBlur={(e)=>handleBlurFormatting(e.target.value, setLimit)} className={`w-full rounded-[18px] px-4 py-3 text-sm outline-none transition ${focusBorder} ${inputTheme}`} placeholder="0.00"/>
                </div>
                {type === 'card' ? (
                <div>
-                 <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Deuda Actual</label>
-                 <input type="number" required value={amount} onChange={(e)=>setAmount(e.target.value)} onBlur={(e)=>handleBlurFormatting(e.target.value, setAmount)} className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]" placeholder="0.00"/>
+                 <label className={`text-[10px] font-bold uppercase mb-2 block tracking-widest ${labelTheme}`}>Deuda Actual</label>
+                 <input type="number" required value={amount} onChange={(e)=>setAmount(e.target.value)} onBlur={(e)=>handleBlurFormatting(e.target.value, setAmount)} className={`w-full rounded-[18px] px-4 py-3 text-sm outline-none transition ${focusBorder} ${inputTheme}`} placeholder="0.00"/>
                </div>
                ) : (
                <div>
-                 <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Cuotas Rest.</label>
-                 <input type="number" required value={installments} onChange={(e)=>setInstallments(e.target.value)} className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]" placeholder="0"/>
+                 <label className={`text-[10px] font-bold uppercase mb-2 block tracking-widest ${labelTheme}`}>Cuotas Rest.</label>
+                 <input type="number" required value={installments} onChange={(e)=>setInstallments(e.target.value)} className={`w-full rounded-[18px] px-4 py-3 text-sm outline-none transition ${focusBorder} ${inputTheme}`} placeholder="0"/>
                </div>
                )}
             </div>
@@ -192,7 +200,7 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
 
           {['expense', 'income', 'card_expense', 'pay_card', 'account', 'subscription', 'transfer', 'pay_loan', 'pay_subscription', 'loan'].includes(type) && (
           <div>
-            <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">{type === 'account' ? 'Saldo Inicial ($)' : 'Monto ($)'}</label>
+            <label className={`text-[10px] font-bold uppercase mb-2 block tracking-widest ${labelTheme}`}>{type === 'account' ? 'Saldo Inicial ($)' : 'Monto ($)'}</label>
             <input 
               type="number" 
               step="any" 
@@ -200,44 +208,44 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
               value={amount} 
               onChange={(e)=>setAmount(formatInputValue(e.target.value))} 
               onBlur={(e)=>handleBlurFormatting(e.target.value, setAmount)}
-              className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[24px] px-4 py-4 text-3xl font-bold text-[#0F172A] outline-none transition focus:border-[#4F46E5]" 
+              className={`w-full rounded-[24px] px-4 py-4 text-3xl font-bold outline-none transition ${focusBorder} ${inputTheme}`} 
               placeholder="0.00"
             />
           </div>
           )}
 
           <div>
-            <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">{type === 'card' ? 'Nombre de la Tarjeta' : 'Descripción'}</label>
+            <label className={`text-[10px] font-bold uppercase mb-2 block tracking-widest ${labelTheme}`}>{type === 'card' ? 'Nombre de la Tarjeta' : 'Descripción'}</label>
             <input 
               type="text" 
               required 
               value={name} 
               onChange={(e)=>setName(e.target.value)} 
-              className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]" 
+              className={`w-full rounded-[18px] px-4 py-3 text-sm outline-none transition ${focusBorder} ${inputTheme}`} 
               placeholder="Ej. Supermercado"
             />
           </div>
 
           {(type === 'account' || type === 'loan') && (
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">{type === 'account' ? 'Tipo' : 'Fecha de Pago'}</label>
+              <label className={`text-[10px] font-bold uppercase mb-2 block tracking-widest ${labelTheme}`}>{type === 'account' ? 'Tipo' : 'Fecha de Pago'}</label>
               {type === 'account' ? (
-              <select value={accType} onChange={(e)=>setAccType(e.target.value)} className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]">
+              <select value={accType} onChange={(e)=>setAccType(e.target.value)} className={`w-full rounded-[18px] px-4 py-3 text-sm outline-none transition ${focusBorder} ${inputTheme}`}>
                 <option>Ahorro</option>
                 <option>Corriente</option>
                 <option>Efectivo</option>
                 <option value="Activo Fijo">Activo Fijo</option>
               </select>
               ) : (
-                <input type="date" required value={date} onChange={(e)=>setDate(e.target.value)} className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]"/>
+                <input type="date" required value={date} onChange={(e)=>setDate(e.target.value)} className={`w-full rounded-[18px] px-4 py-3 text-sm outline-none transition ${focusBorder} ${inputTheme}`}/>
               )}
             </div>
           )}
 
           {['subscription', 'expense', 'income'].includes(type) && (
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Categoría</label>
-              <select value={category} onChange={(e)=>setCategory(e.target.value)} className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]">
+              <label className={`text-[10px] font-bold uppercase mb-2 block tracking-widest ${labelTheme}`}>Categoría</label>
+              <select value={category} onChange={(e)=>setCategory(e.target.value)} className={`w-full rounded-[18px] px-4 py-3 text-sm outline-none transition ${focusBorder} ${inputTheme}`}>
                 {(type === 'income' ? categories.income_categories : categories.expense_categories)?.map(cat => <option key={cat} value={cat}>{cat}</option>)}
               </select>
             </div>
@@ -245,11 +253,11 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
 
           {type === 'subscription' && (
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Cuenta de origen</label>
+              <label className={`text-[10px] font-bold uppercase mb-2 block tracking-widest ${labelTheme}`}>Cuenta de origen</label>
               <select 
                 value={accountId} 
                 onChange={(e)=>setAccountId(e.target.value)} 
-                className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]"
+                className={`w-full rounded-[18px] px-4 py-3 text-sm outline-none transition focus:border-[#4F46E5] ${inputTheme}`}
               >
                 {usableAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                 <option value="external">Efectivo Externo</option>
@@ -259,19 +267,19 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
 
           {type === 'subscription' && (
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Próxima Fecha de Pago</label>
-              <input type="date" required value={date} onChange={(e)=>setDate(e.target.value)} className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]"/>
+              <label className={`text-[10px] font-bold uppercase mb-2 block tracking-widest ${labelTheme}`}>Próxima Fecha de Pago</label>
+              <input type="date" required value={date} onChange={(e)=>setDate(e.target.value)} className={`w-full rounded-[18px] px-4 py-3 text-sm outline-none transition focus:border-[#4F46E5] ${inputTheme}`}/>
             </div>
           )}
 
           {type === 'transfer' && (
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Cuenta de destino</label>
+              <label className={`text-[10px] font-bold uppercase mb-2 block tracking-widest ${labelTheme}`}>Cuenta de destino</label>
               <select 
                 required
                 value={toAccountId} 
                 onChange={(e)=>setToAccountId(e.target.value)} 
-                className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]"
+                className={`w-full rounded-[18px] px-4 py-3 text-sm outline-none transition focus:border-[#4F46E5] ${inputTheme}`}
               >
                 <option value="">Seleccionar destino</option>
                 {usableAccounts.map(a => a.id !== accountId && <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -282,23 +290,23 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
           {type === 'card' && (
             <div className="grid grid-cols-2 gap-3">
                <div>
-                 <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Día Corte</label>
-                 <input type="date" required value={cutoffDate} onChange={(e)=>setCutoffDate(e.target.value)} className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]"/>
+                 <label className={`text-[10px] font-bold uppercase mb-2 block tracking-widest ${labelTheme}`}>Día Corte</label>
+                 <input type="date" required value={cutoffDate} onChange={(e)=>setCutoffDate(e.target.value)} className={`w-full rounded-[18px] px-4 py-3 text-sm outline-none transition ${focusBorder} ${inputTheme}`}/>
                </div>
                <div>
-                 <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Próx Pago</label>
-                 <input type="date" required value={date} onChange={(e)=>setDate(e.target.value)} className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]"/>
+                 <label className={`text-[10px] font-bold uppercase mb-2 block tracking-widest ${labelTheme}`}>Próx Pago</label>
+                 <input type="date" required value={date} onChange={(e)=>setDate(e.target.value)} className={`w-full rounded-[18px] px-4 py-3 text-sm outline-none transition ${focusBorder} ${inputTheme}`}/>
                </div>
             </div>
           )}
 
           {['expense', 'income', 'pay_card'].includes(type) && (
             <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Cuenta de origen</label>
+              <label className={`text-[10px] font-bold uppercase mb-2 block tracking-widest ${labelTheme}`}>Cuenta de origen</label>
               <select 
                 value={accountId} 
                 onChange={(e)=>setAccountId(e.target.value)} 
-                className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]"
+                className={`w-full rounded-[18px] px-4 py-3 text-sm outline-none transition focus:border-[#4F46E5] ${inputTheme}`}
               >
                 {usableAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                 <option value="external">Efectivo Externo</option>
@@ -308,7 +316,7 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
           <button 
             disabled={loading} 
             type="submit" 
-            className="w-full mt-4 bg-[#4F46E5] text-white font-bold py-4 rounded-[22px] hover:bg-[#4338CA] transition disabled:opacity-50 uppercase text-xs tracking-[0.2em]"
+            className={`w-full mt-4 font-bold py-4 rounded-[22px] transition disabled:opacity-50 uppercase text-xs tracking-[0.2em] ${submitButtonTheme}`}
           >
             {loading ? 'Procesando...' : 'Confirmar'}
           </button>
