@@ -145,15 +145,15 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
   };
 
   return (
-    <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-6 shadow-2xl relative animate-slide-up max-h-[90vh] overflow-y-auto">
-        <button onClick={onClose} className="absolute top-4 right-4 text-slate-500">✕</button>
-        <h2 className="font-bold text-xl text-slate-200 mb-6 flex justify-between">
+    <div className="absolute inset-0 bg-[#E0F2FE]/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
+      <div className="bg-white border border-slate-200 w-full max-w-md rounded-[28px] p-6 shadow-[0_25px_80px_-40px_rgba(15,23,42,0.18)] relative animate-slide-up max-h-[90vh] overflow-y-auto">
+        <button onClick={onClose} className="absolute top-4 right-4 rounded-full p-2 text-slate-500 transition hover:bg-[#EFF6FF] hover:text-[#0F172A]">✕</button>
+        <h2 className="font-bold text-xl text-[#0F172A] mb-6 flex justify-between items-center">
           {isEdit ? 'Editar' : (titles[type] || 'Nuevo registro')}
           {isEdit && (
             <button 
               onClick={() => deleteEntity(type === 'account' ? 'accounts' : type === 'card' ? 'credit_cards' : type === 'loan' ? 'loans' : 'subscriptions', relatedItem.id)} 
-              className="text-xs text-rose-500 font-bold uppercase"
+              className="rounded-full border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#BE123C] transition hover:bg-[#FEE2E2]"
             >
               Borrar
             </button>
@@ -163,7 +163,7 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
           {type === 'card' && (
             <div>
               <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Banco</label>
-              <select required value={bank} onChange={(e)=>setBank(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none">
+              <select required value={bank} onChange={(e)=>setBank(e.target.value)} className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]">
                 <option value="">Seleccionar Banco</option>
                 {panamaBanks.map(b => <option key={b} value={b}>{b}</option>)}
               </select>
@@ -174,17 +174,17 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
             <div className="grid grid-cols-2 gap-3">
                <div>
                  <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">{type === 'card' ? 'Límite Total' : 'Monto Total'}</label>
-                 <input type="number" required value={limit} onChange={(e)=>setLimit(e.target.value)} onBlur={(e)=>handleBlurFormatting(e.target.value, setLimit)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none" placeholder="0.00"/>
+                 <input type="number" required value={limit} onChange={(e)=>setLimit(e.target.value)} onBlur={(e)=>handleBlurFormatting(e.target.value, setLimit)} className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]" placeholder="0.00"/>
                </div>
                {type === 'card' ? (
                <div>
                  <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Deuda Actual</label>
-                 <input type="number" required value={amount} onChange={(e)=>setAmount(e.target.value)} onBlur={(e)=>handleBlurFormatting(e.target.value, setAmount)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none" placeholder="0.00"/>
+                 <input type="number" required value={amount} onChange={(e)=>setAmount(e.target.value)} onBlur={(e)=>handleBlurFormatting(e.target.value, setAmount)} className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]" placeholder="0.00"/>
                </div>
                ) : (
                <div>
                  <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Cuotas Rest.</label>
-                 <input type="number" required value={installments} onChange={(e)=>setInstallments(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none" placeholder="0"/>
+                 <input type="number" required value={installments} onChange={(e)=>setInstallments(e.target.value)} className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]" placeholder="0"/>
                </div>
                )}
             </div>
@@ -200,7 +200,7 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
               value={amount} 
               onChange={(e)=>setAmount(formatInputValue(e.target.value))} 
               onBlur={(e)=>handleBlurFormatting(e.target.value, setAmount)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-4 text-3xl font-bold text-emerald-400 outline-none" 
+              className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[24px] px-4 py-4 text-3xl font-bold text-[#0F172A] outline-none transition focus:border-[#4F46E5]" 
               placeholder="0.00"
             />
           </div>
@@ -213,7 +213,7 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
               required 
               value={name} 
               onChange={(e)=>setName(e.target.value)} 
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none" 
+              className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]" 
               placeholder="Ej. Supermercado"
             />
           </div>
@@ -222,14 +222,14 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
             <div>
               <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">{type === 'account' ? 'Tipo' : 'Fecha de Pago'}</label>
               {type === 'account' ? (
-              <select value={accType} onChange={(e)=>setAccType(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none">
+              <select value={accType} onChange={(e)=>setAccType(e.target.value)} className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]">
                 <option>Ahorro</option>
                 <option>Corriente</option>
                 <option>Efectivo</option>
                 <option value="Activo Fijo">Activo Fijo</option>
               </select>
               ) : (
-                <input type="date" required value={date} onChange={(e)=>setDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none"/>
+                <input type="date" required value={date} onChange={(e)=>setDate(e.target.value)} className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]"/>
               )}
             </div>
           )}
@@ -237,7 +237,7 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
           {['subscription', 'expense', 'income'].includes(type) && (
             <div>
               <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Categoría</label>
-              <select value={category} onChange={(e)=>setCategory(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none">
+              <select value={category} onChange={(e)=>setCategory(e.target.value)} className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]">
                 {(type === 'income' ? categories.income_categories : categories.expense_categories)?.map(cat => <option key={cat} value={cat}>{cat}</option>)}
               </select>
             </div>
@@ -249,7 +249,7 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
               <select 
                 value={accountId} 
                 onChange={(e)=>setAccountId(e.target.value)} 
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none"
+                className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]"
               >
                 {usableAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                 <option value="external">Efectivo Externo</option>
@@ -260,7 +260,7 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
           {type === 'subscription' && (
             <div>
               <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Próxima Fecha de Pago</label>
-              <input type="date" required value={date} onChange={(e)=>setDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none"/>
+              <input type="date" required value={date} onChange={(e)=>setDate(e.target.value)} className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]"/>
             </div>
           )}
 
@@ -271,7 +271,7 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
                 required
                 value={toAccountId} 
                 onChange={(e)=>setToAccountId(e.target.value)} 
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none"
+                className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]"
               >
                 <option value="">Seleccionar destino</option>
                 {usableAccounts.map(a => a.id !== accountId && <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -283,11 +283,11 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
             <div className="grid grid-cols-2 gap-3">
                <div>
                  <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Día Corte</label>
-                 <input type="date" required value={cutoffDate} onChange={(e)=>setCutoffDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none"/>
+                 <input type="date" required value={cutoffDate} onChange={(e)=>setCutoffDate(e.target.value)} className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]"/>
                </div>
                <div>
                  <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Próx Pago</label>
-                 <input type="date" required value={date} onChange={(e)=>setDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none"/>
+                 <input type="date" required value={date} onChange={(e)=>setDate(e.target.value)} className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]"/>
                </div>
             </div>
           )}
@@ -298,7 +298,7 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
               <select 
                 value={accountId} 
                 onChange={(e)=>setAccountId(e.target.value)} 
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none"
+                className="w-full bg-[#F8FAFC] border border-slate-200 rounded-[18px] px-4 py-3 text-sm text-[#0F172A] outline-none transition focus:border-[#4F46E5]"
               >
                 {usableAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                 <option value="external">Efectivo Externo</option>
@@ -308,7 +308,7 @@ export const ActionModal = ({ config, onClose, userId, categories, creditCards, 
           <button 
             disabled={loading} 
             type="submit" 
-            className="w-full mt-4 bg-emerald-500 text-slate-950 font-bold py-4 rounded-2xl hover:bg-emerald-400 transition disabled:opacity-50 uppercase text-xs tracking-widest"
+            className="w-full mt-4 bg-[#4F46E5] text-white font-bold py-4 rounded-[22px] hover:bg-[#4338CA] transition disabled:opacity-50 uppercase text-xs tracking-[0.2em]"
           >
             {loading ? 'Procesando...' : 'Confirmar'}
           </button>
